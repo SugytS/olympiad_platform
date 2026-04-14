@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="mb-4">Рейтинг пользователей</h1>
+<div class="card">
+    <div class="card-body">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr><th>Место</th><th>Пользователь</th><th>Решено задач</th></tr>
+            </thead>
+            <tbody>
+                {% for r in rating %}
+                <tr>
+                    <td>{{ r.rank }}</td>
+                    <td>{{ r.name }}</td>
+                    <td>{{ r.solved }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

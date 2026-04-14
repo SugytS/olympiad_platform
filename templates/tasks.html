@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('topics_list') }}">Темы</a></li>
+        <li class="breadcrumb-item active">{{ topic.title }}</li>
+    </ol>
+</nav>
+
+<h1>{{ topic.title }}</h1>
+<p>{{ topic.description }}</p>
+
+<!-- Вкладки -->
+<ul class="nav nav-tabs mb-4" id="topicTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="theory-tab" data-bs-toggle="tab" data-bs-target="#theory" type="button" role="tab" aria-controls="theory" aria-selected="true">
+            📘 Теория
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="practice-tab" data-bs-toggle="tab" data-bs-target="#practice" type="button" role="tab" aria-controls="practice" aria-selected="false">
+            💻 Практика (задачи)
+        </button>
+    </li>
+</ul>
+
+<!-- Содержимое вкладок -->
+<div class="tab-content" id="topicTabsContent">
+    <!-- Вкладка "Теория" -->
+    <div class="tab-pane fade show active" id="theory" role="tabpanel" aria-labelledby="theory-tab">
+        {% if topic.theory %}
+            <div class="card">
+                <div class="card-body">
+                    {{ topic.theory|safe }}
+                </div>
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                Теория по этой теме пока не добавлена. Следите за обновлениями!
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Вкладка "Практика" -->
+    <div class="tab-pane fade" id="practice" role="tabpanel" aria-labelledby="practice-tab">
+        <h3 class="mb-3">Задачи</h3>
+        <div class="list-group">
+            {% for task in tasks %}
+                {% set status = task_status.get(task.id, 'none') %}
+                <a href="{{ url_for('task_detail', task_id=task.id) }}" class="list-group-item list-group-item-action
+                    {% if status == 'solved' %}bg-success-subtle border-success{% elif status == 'attempted' %}bg-danger-subtle border-danger{% endif %}">
+                    <div class="d-flex w-100 justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-1">{{ task.title }}</h5>
+                            <small class="text-muted">Ограничение времени: {{ task.time_limit }} сек.</small>
+                        </div>
+                        {% if status == 'solved' %}
+                            <span class="badge bg-success">Решено ✓</span>
+                        {% elif status == 'attempted' %}
+                            <span class="badge bg-danger">Попытка ✗</span>
+                        {% endif %}
+                    </div>
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-success-subtle {
+        background-color: #d1e7dd !important;
+    }
+    .bg-danger-subtle {
+        background-color: #f8d7da !important;
+    }
+    .border-success {
+        border-left: 4px solid #198754;
+    }
+    .border-danger {
+        border-left: 4px solid #dc3545;
+    }
+    .nav-tabs .nav-link {
+        font-size: 1.1rem;
+        font-weight: 500;
+    }
+</style>
+
+<!-- Скрипт для сохранения активной вкладки (опционально) -->
+<script>
+    // Сохраняем активную вкладку в localStorage
+    document.addEventListener('DOMContentLoaded', function() {
+        const activeTab = localStorage.getItem('activeTopicTab');
+        if (activeTab) {
+            const triggerEl = document.querySelector(`#topicTabs button[data-bs-target="${activeTab}"]`);
+            if (triggerEl) {
+                const tab = new bootstrap.Tab(triggerEl);
+                tab.show();
+            }
+        }
+
+        // Сохраняем выбор при переключении
+        const tabs = document.querySelectorAll('#topicTabs button');
+        tabs.forEach(tab => {
+            tab.addEventListener('shown.bs.tab', function(event) {
+                localStorage.setItem('activeTopicTab', event.target.getAttribute('data-bs-target'));
+            });
+        });
+    });
+</script>
+{% endblock %}
