@@ -2,18 +2,38 @@ from data import db_session
 from data.users import User
 from sqlalchemy import inspect, text
 
+
 def ensure_columns():
-    """Добавляет недостающие колонки в таблицу users (если нужно)"""
+    """Добавляет недостающие колонки в таблицы (для обновления БД)"""
     with db_session.session_scope() as session:
         inspector = inspect(session.bind)
-        columns = [col['name'] for col in inspector.get_columns('users')]
-        if 'is_admin' not in columns:
+
+        # users
+        cols = [c['name'] for c in inspector.get_columns('users')]
+        if 'is_admin' not in cols:
             session.execute(text('ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0'))
-            print("Добавлена колонка is_admin")
-        if 'is_super_admin' not in columns:
+            print("Добавлена колонка is_admin в таблицу users")
+        if 'is_super_admin' not in cols:
             session.execute(text('ALTER TABLE users ADD COLUMN is_super_admin BOOLEAN DEFAULT 0'))
-            print("Добавлена колонка is_super_admin")
+            print("Добавлена колонка is_super_admin в таблицу users")
+
+        # topics
+        cols_topics = [c['name'] for c in inspector.get_columns('topics')]
+        if 'created_by' not in cols_topics:
+            session.execute(text('ALTER TABLE topics ADD COLUMN created_by INTEGER REFERENCES users(id)'))
+            session.execute(text('ALTER TABLE topics ADD COLUMN is_system BOOLEAN DEFAULT 0'))
+            session.execute(text('ALTER TABLE topics ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP'))
+            print("Добавлены колонки created_by, is_system, created_at в таблицу topics")
+
+        # tasks
+        cols_tasks = [c['name'] for c in inspector.get_columns('tasks')]
+        if 'created_by' not in cols_tasks:
+            session.execute(text('ALTER TABLE tasks ADD COLUMN created_by INTEGER REFERENCES users(id)'))
+            session.execute(text('ALTER TABLE tasks ADD COLUMN is_system BOOLEAN DEFAULT 0'))
+            print("Добавлены колонки created_by, is_system в таблицу tasks")
+
         session.commit()
+
 
 def init_super_admin():
     ensure_columns()  # сначала убеждаемся, что колонки есть

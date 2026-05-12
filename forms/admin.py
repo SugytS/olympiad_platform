@@ -18,3 +18,17 @@ class TaskForm(FlaskForm):
     time_limit = FloatField('Ограничение времени (сек)', default=2.0, validators=[NumberRange(min=0.1)])
     topic_id = SelectField('Тема', coerce=int, validators=[DataRequired()])
     submit = SubmitField('Сохранить')
+
+class GroupForm(FlaskForm):
+    name = StringField('Название группы', validators=[DataRequired()])
+    description = TextAreaField('Описание')
+    submit = SubmitField('Создать группу')
+
+class GroupTaskForm(FlaskForm):
+    title = StringField('Название задачи', validators=[DataRequired()])
+    description = TextAreaField('Описание', validators=[DataRequired()])
+    input_example = TextAreaField('Пример ввода')
+    output_example = TextAreaField('Пример вывода')
+    tests_json = TextAreaField('Тесты (JSON)', validators=[DataRequired()])
+    time_limit = FloatField('Ограничение времени (сек)', default=2.0, validators=[NumberRange(min=0.1)])
+    submit = SubmitField('Сохранить задачу')

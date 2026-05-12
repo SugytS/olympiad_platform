@@ -1,6 +1,8 @@
+import datetime
 import sqlalchemy
 from sqlalchemy import orm
 from .db_session import SqlAlchemyBase
+
 
 class Topic(SqlAlchemyBase):
     __tablename__ = 'topics'
@@ -10,5 +12,9 @@ class Topic(SqlAlchemyBase):
     description = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
     order = sqlalchemy.Column(sqlalchemy.Integer, default=0)
     theory = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
+
+    created_by = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey("users.id"), nullable=True)
+    is_system = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
+    created_at = sqlalchemy.Column(sqlalchemy.DateTime, default=datetime.datetime.now)
 
     tasks = orm.relationship("Task", back_populates="topic")
