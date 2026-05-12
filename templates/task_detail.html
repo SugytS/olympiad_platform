@@ -1,14 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
-<nav aria-label="breadcrumb">
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{{ url_for('topics_list') }}">Темы</a></li>
-        <li class="breadcrumb-item"><a href="{{ url_for('tasks_by_topic', topic_id=task.topic_id) }}">{{ task.topic.title }}</a></li>
-        <li class="breadcrumb-item active">{{ task.title }}</li>
-    </ol>
-</nav>
 <h1>{{ task.title }}</h1>
-<div class="card mb-4">
+<div class="card mb-3">
     <div class="card-body">
         <p>{{ task.description|safe }}</p>
         {% if task.input_example %}

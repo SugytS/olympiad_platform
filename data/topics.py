@@ -10,4 +10,5 @@ class Topic(SqlAlchemyBase):
     description = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
     order = sqlalchemy.Column(sqlalchemy.Integer, default=0)
     theory = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
+
     tasks = orm.relationship("Task", back_populates="topic")
