@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{% if task %}Редактировать{% else %}Добавить{% endif %} задачу в группе "{{ group.name }}"</h1>
+<form method="POST">
+    {{ form.hidden_tag() }}
+    <div class="mb-3">{{ form.title.label(class="form-label") }} {{ form.title(class="form-control") }}</div>
+    <div class="mb-3">{{ form.description.label(class="form-label") }} {{ form.description(class="form-control", rows=8) }}</div>
+    <div class="row">
+        <div class="col-md-6">{{ form.input_example.label(class="form-label") }} {{ form.input_example(class="form-control", rows=3) }}</div>
+        <div class="col-md-6">{{ form.output_example.label(class="form-label") }} {{ form.output_example(class="form-control", rows=3) }}</div>
+    </div>
+    <div class="mb-3">{{ form.tests_json.label(class="form-label") }} {{ form.tests_json(class="form-control font-monospace", rows=10) }}</div>
+    <div class="mb-3">{{ form.time_limit.label(class="form-label") }} {{ form.time_limit(class="form-control", step="0.1") }}</div>
+    {{ form.submit(class="btn btn-success") }}
+    <a href="{{ url_for('group_detail', group_id=group.id) }}" class="btn btn-secondary">Отмена</a>
+</form>
+{% endblock %}

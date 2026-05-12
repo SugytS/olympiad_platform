@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Создать группу</h1>
+<form method="POST">
+    {{ form.hidden_tag() }}
+    <div class="mb-3">{{ form.name.label(class="form-label") }} {{ form.name(class="form-control") }}</div>
+    <div class="mb-3">{{ form.description.label(class="form-label") }} {{ form.description(class="form-control", rows=5) }}</div>
+    {{ form.submit(class="btn btn-success") }}
+    <a href="{{ url_for('admin_groups') }}" class="btn btn-secondary">Отмена</a>
+</form>
+{% endblock %}
