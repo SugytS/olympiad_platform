@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Результат проверки решения в группе</h2>
+<div class="card mt-3">
+    <div class="card-header">
+        <strong>Статус:</strong>
+        <span class="badge bg-{{ 'success' if status == 'OK' else 'danger' if status in ['WA', 'RE', 'CE', 'TL'] else 'secondary' }}">
+            {{ status }}
+        </span>
+        <span class="ms-3">Язык: {{ language|upper }}</span>
+    </div>
+    <div class="card-body">
+        <pre class="bg-dark text-light p-3 rounded">{{ details }}</pre>
+        <a href="{{ url_for('group_task_detail', task_id=task_id) }}" class="btn btn-secondary">Вернуться к задаче</a>
+        <a href="{{ url_for('group_tasks_list', group_id=group_id) }}" class="btn btn-outline-primary">Ко всем задачам группы</a>
+    </div>
+</div>
+{% endblock %}

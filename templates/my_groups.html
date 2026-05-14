@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Мои группы</h1>
+
+{% if owned_groups %}
+<h3 class="mt-4">Группы, которые я создал</h3>
+<div class="list-group mb-4">
+    {% for group in owned_groups %}
+    <div class="list-group-item">
+        <div class="d-flex w-100 justify-content-between align-items-center">
+            <div>
+                <h5 class="mb-1">{{ group.name }}</h5>
+                <p class="mb-1">{{ group.description or 'Описание отсутствует' }}</p>
+            </div>
+            <div>
+                <a href="{{ url_for('group_tasks_list', group_id=group.id) }}" class="btn btn-sm btn-primary">Задачи</a>
+                <a href="{{ url_for('group_rating', group_id=group.id) }}" class="btn btn-sm btn-info">Рейтинг</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if groups %}
+<h3>Группы, в которых я состою</h3>
+<div class="list-group">
+    {% for group in groups %}
+    <div class="list-group-item">
+        <div class="d-flex w-100 justify-content-between align-items-center">
+            <div>
+                <h5 class="mb-1">{{ group.name }}</h5>
+                <p class="mb-1">{{ group.description or 'Описание отсутствует' }}</p>
+            </div>
+            <div>
+                <a href="{{ url_for('group_tasks_list', group_id=group.id) }}" class="btn btn-sm btn-primary">Задачи</a>
+                <a href="{{ url_for('group_rating', group_id=group.id) }}" class="btn btn-sm btn-info">Рейтинг</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info mt-3">
+    Вы пока не состоите ни в одной группе. Обратитесь к учителю, чтобы он добавил вас.
+</div>
+{% endif %}
+
+<a href="{{ url_for('index') }}" class="btn btn-secondary mt-4">На главную</a>
+{% endblock %}

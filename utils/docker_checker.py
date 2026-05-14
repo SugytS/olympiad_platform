@@ -16,12 +16,10 @@ def run_code_in_docker(code, tests_json_str, language='python', time_limit=2.0):
     if language == 'python':
         filename = 'solution.py'
         compile_cmd = None
-        run_cmd = ['python', f'/code/{filename}']
         image = 'python:3.10-slim'
     elif language == 'cpp':
         filename = 'solution.cpp'
         compile_cmd = ['g++', '/code/solution.cpp', '-o', '/code/solution']
-        run_cmd = ['/code/solution']
         image = 'gcc:12'
     else:
         return 'CE', 'Неподдерживаемый язык'
@@ -65,10 +63,16 @@ def run_code_in_docker(code, tests_json_str, language='python', time_limit=2.0):
         with open(input_file, 'w', encoding='utf-8') as f:
             f.write(input_data)
 
+        # Формируем команду с перенаправлением ввода
+        if language == 'python':
+            cmd = f'python /code/{filename} < /code/input_{i}.txt 2>&1'
+        else:  # cpp
+            cmd = f'/code/solution < /code/input_{i}.txt 2>&1'
+
         try:
             start_time = time.time()
             exec_result = container.exec_run(
-                ['sh', '-c', f'{run_cmd[0]} < /code/input_{i}.txt 2>&1'],
+                ['sh', '-c', cmd],
                 workdir='/code',
                 demux=False
             )

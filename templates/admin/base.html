@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block head %}
+{{ super() }}
+<style>
+    /* Тёмная гамма для админ-панели */
+    .navbar.bg-dark {
+        background-color: #0d2b3e !important;
+    }
+    .btn-primary {
+        background-color: #1e4a76;
+        border-color: #1e4a76;
+    }
+    .btn-primary:hover {
+        background-color: #163a5c;
+        border-color: #163a5c;
+    }
+    .btn-success {
+        background-color: #1e4a76;
+        border-color: #1e4a76;
+    }
+    .btn-success:hover {
+        background-color: #163a5c;
+    }
+    .btn-info {
+        background-color: #2c7da0;
+        border-color: #2c7da0;
+    }
+    .btn-warning {
+        background-color: #b9770e;
+        border-color: #b9770e;
+        color: #fff;
+    }
+    .card-header {
+        background-color: #1a3b4f;
+        color: #f0f0f0;
+    }
+    .table {
+        --bs-table-striped-bg: #e9ecef;
+    }
+    .bg-primary {
+        background-color: #1e4a76 !important;
+    }
+    .bg-success {
+        background-color: #2a6f4f !important;
+    }
+    .bg-info {
+        background-color: #2c7da0 !important;
+    }
+    .bg-warning {
+        background-color: #b9770e !important;
+    }
+    body {
+        background-color: #f4f6f8;
+    }
+    .card {
+        border: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .accordion-button:not(.collapsed) {
+        background-color: #e2e6ea;
+        color: #0d3b66;
+    }
+    .accordion-button:focus {
+        box-shadow: none;
+        border-color: #dee2e6;
+    }
+</style>
+{% endblock %}

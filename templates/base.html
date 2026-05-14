@@ -19,17 +19,19 @@
                     {% if current_user.is_authenticated %}
                         <li class="nav-item"><a class="nav-link" href="{{ url_for('profile') }}">Мой профиль</a></li>
                         <li class="nav-item"><a class="nav-link" href="{{ url_for('rating') }}">Рейтинг</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('my_groups') }}">Мои группы</a></li>
                         {% if current_user.is_admin %}
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">⚙️ Админ</a>
                                 <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" href="{{ url_for('admin_dashboard') }}">Панель</a></li>
-                                    <li><a class="dropdown-item" href="{{ url_for('admin_topics') }}">Темы</a></li>
-                                    <li><a class="dropdown-item" href="{{ url_for('admin_tasks') }}">Задачи</a></li>
                                     {% if current_user.is_super_admin %}
-                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" href="{{ url_for('admin_dashboard') }}">Панель</a></li>
+                                        <li><a class="dropdown-item" href="{{ url_for('admin_topics') }}">Темы</a></li>
+                                        <li><a class="dropdown-item" href="{{ url_for('admin_tasks') }}">Задачи</a></li>
                                         <li><a class="dropdown-item" href="{{ url_for('admin_users') }}">Пользователи</a></li>
+                                        <li><hr class="dropdown-divider"></li>
                                     {% endif %}
+                                    <li><a class="dropdown-item" href="{{ url_for('admin_groups') }}">Группы</a></li>
                                 </ul>
                             </li>
                         {% endif %}
@@ -42,7 +44,8 @@
             </div>
         </div>
     </nav>
-    <div class="container mt-4">
+    <!-- Добавлен отступ снизу 80px -->
+    <div class="container mt-4" style="padding-bottom: 80px;">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% for cat, msg in messages %}
                 <div class="alert alert-{{ cat }} alert-dismissible fade show">{{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>

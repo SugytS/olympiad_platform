@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "admin/base.html" %}
 {% block content %}
-<h1>Панель управления</h1>
-<div class="row mt-4">
+<h1 class="text-center">Панель управления</h1>
+<div class="row mt-4 justify-content-center">
     <div class="col-md-3">
-        <div class="card text-white bg-primary mb-3">
+        <div class="card text-white mb-3 text-center" style="background: linear-gradient(135deg, #1e3c72, #2a5298);">
             <div class="card-body">
                 <h5 class="card-title">Темы</h5>
                 <p class="display-4">{{ topics_count }}</p>
@@ -11,7 +11,7 @@
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card text-white bg-success mb-3">
+        <div class="card text-white mb-3 text-center" style="background: linear-gradient(135deg, #1e5f4a, #2d8f6e);">
             <div class="card-body">
                 <h5 class="card-title">Задачи</h5>
                 <p class="display-4">{{ tasks_count }}</p>
@@ -19,7 +19,7 @@
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card text-white bg-info mb-3">
+        <div class="card text-white mb-3 text-center" style="background: linear-gradient(135deg, #3a3f44, #555b62);">
             <div class="card-body">
                 <h5 class="card-title">Пользователи</h5>
                 <p class="display-4">{{ users_count }}</p>
@@ -27,7 +27,7 @@
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card text-white bg-warning mb-3">
+        <div class="card text-white mb-3 text-center" style="background: linear-gradient(135deg, #6b2e4a, #9e4268);">
             <div class="card-body">
                 <h5 class="card-title">Решения</h5>
                 <p class="display-4">{{ submissions_count }}</p>
@@ -35,17 +35,15 @@
         </div>
     </div>
 </div>
-<div class="row mt-4">
-    <div class="col-md-4">
-        <a href="{{ url_for('admin_topics') }}" class="btn btn-primary w-100 py-3">Управление темами</a>
+<div class="row mt-4 justify-content-center">
+    <div class="col-md-4 d-flex justify-content-center">
+        <a href="{{ url_for('admin_topics') }}" class="btn w-100 py-3 text-center" style="background-color: #2a5298; color: white;">Управление темами</a>
     </div>
-    <div class="col-md-4">
-        <a href="{{ url_for('admin_tasks') }}" class="btn btn-success w-100 py-3">Управление задачами</a>
+    <div class="col-md-4 d-flex justify-content-center">
+        <a href="{{ url_for('admin_tasks') }}" class="btn w-100 py-3 text-center" style="background-color: #2d8f6e; color: white;">Управление задачами</a>
     </div>
-    {% if current_user.is_super_admin %}
-    <div class="col-md-4">
-        <a href="{{ url_for('admin_users') }}" class="btn btn-info w-100 py-3">Управление пользователями</a>
+    <div class="col-md-4 d-flex justify-content-center">
+        <a href="{{ url_for('admin_users') }}" class="btn w-100 py-3 text-center" style="background-color: #555b62; color: white;">Управление пользователями</a>
     </div>
-    {% endif %}
 </div>
 {% endblock %}

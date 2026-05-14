@@ -16,6 +16,9 @@ def ensure_columns():
         if 'is_super_admin' not in cols:
             session.execute(text('ALTER TABLE users ADD COLUMN is_super_admin BOOLEAN DEFAULT 0'))
             print("Добавлена колонка is_super_admin в таблицу users")
+        if 'avatar_filename' not in cols:
+            session.execute(text('ALTER TABLE users ADD COLUMN avatar_filename VARCHAR(255) DEFAULT NULL'))
+            print("Добавлена колонка avatar_filename в таблицу users")
 
         # topics
         cols_topics = [c['name'] for c in inspector.get_columns('topics')]
@@ -31,6 +34,12 @@ def ensure_columns():
             session.execute(text('ALTER TABLE tasks ADD COLUMN created_by INTEGER REFERENCES users(id)'))
             session.execute(text('ALTER TABLE tasks ADD COLUMN is_system BOOLEAN DEFAULT 0'))
             print("Добавлены колонки created_by, is_system в таблицу tasks")
+
+        # group_submissions
+        cols_gs = [c['name'] for c in inspector.get_columns('group_submissions')]
+        if 'review_comment' not in cols_gs:
+            session.execute(text('ALTER TABLE group_submissions ADD COLUMN review_comment TEXT'))
+            print("Добавлена колонка review_comment в таблицу group_submissions")
 
         session.commit()
 

@@ -1,0 +1,24 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<h1>Управление группами</h1>
+<a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary mb-3">← Назад</a>
+<a href="{{ url_for('add_group') }}" class="btn btn-primary mb-3">+ Создать группу</a>
+<table class="table table-striped">
+    <thead>
+        <tr><th>ID</th><th>Название</th><th>Описание</th><th>Создатель</th><th>Действия</th></tr>
+    </thead>
+    <tbody>
+        {% for group in groups %}
+        <tr>
+            <td>{{ group.id }}</td>
+            <td>{{ group.name }}</td>
+            <td>{{ group.description or '' }}</td>
+            <td>{{ group.created_by }} (ID: {{ group.created_by }})</td>
+            <td>
+                <a href="{{ url_for('group_detail', group_id=group.id) }}" class="btn btn-sm btn-info">Управление</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

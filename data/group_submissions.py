@@ -14,6 +14,7 @@ class GroupSubmission(SqlAlchemyBase):
     status = sqlalchemy.Column(sqlalchemy.String, default='pending')
     details = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
     created_at = sqlalchemy.Column(sqlalchemy.DateTime, default=datetime.datetime.now)
+    review_comment = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
 
     task = orm.relationship("GroupTask", back_populates="submissions")
     user = orm.relationship("User")

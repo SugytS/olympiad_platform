@@ -17,6 +17,7 @@ class User(SqlAlchemyBase, UserMixin, SerializerMixin):
     created_date = sqlalchemy.Column(sqlalchemy.DateTime, default=datetime.datetime.now)
     is_admin = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
     is_super_admin = sqlalchemy.Column(sqlalchemy.Boolean, default=False)
+    avatar_filename = sqlalchemy.Column(sqlalchemy.String, nullable=True)  # новое поле
 
     submissions = orm.relationship("Submission", back_populates="user")
 

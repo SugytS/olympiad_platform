@@ -1,6 +1,6 @@
 {% extends "admin/base.html" %}
 {% block content %}
-<h1>{{ title }}</h1>
+<h1>{% if task %}Редактировать задачу{% else %}Добавить задачу в группу{% endif %}</h1>
 <form method="POST" id="taskForm">
     {{ form.hidden_tag() }}
     <div class="mb-3">
@@ -26,6 +26,7 @@
         </div>
     </div>
 
+    <!-- Новый блок для тестов -->
     <div class="mb-3">
         <label class="form-label">Тесты (входные данные → ожидаемый вывод)</label>
         <div id="tests-container"></div>
@@ -34,22 +35,12 @@
         <small class="text-muted">Тесты будут автоматически преобразованы в JSON.</small>
     </div>
 
-    <div class="row">
-        <div class="col-md-6">
-            <div class="mb-3">
-                {{ form.time_limit.label(class="form-label") }}
-                {{ form.time_limit(class="form-control", step="0.1") }}
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="mb-3">
-                {{ form.topic_id.label(class="form-label") }}
-                {{ form.topic_id(class="form-select") }}
-            </div>
-        </div>
+    <div class="mb-3">
+        {{ form.time_limit.label(class="form-label") }}
+        {{ form.time_limit(class="form-control", step="0.1") }}
     </div>
     {{ form.submit(class="btn btn-success", id="submit-btn") }}
-    <a href="{{ url_for('admin_tasks') }}" class="btn btn-secondary">Отмена</a>
+    <a href="{{ url_for('group_detail', group_id=group.id) }}" class="btn btn-secondary">Отмена</a>
 </form>
 
 <script>

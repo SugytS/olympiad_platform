@@ -13,12 +13,12 @@
             <pre class="bg-light p-2 border rounded">{{ task.output_example }}</pre>
         {% endif %}
         <div class="alert alert-info">
-            <strong>Ограничения:</strong> время {{ task.time_limit }} сек., память {{ task.memory_limit }} МБ
+            <strong>Ограничения:</strong> время {{ task.time_limit }} сек., память 256 МБ
         </div>
     </div>
 </div>
 
-<form method="POST" enctype="multipart/form-data">
+<form method="POST" enctype="multipart/form-data" id="taskForm">
     {{ form.hidden_tag() }}
     <div class="mb-3">
         {{ form.language.label(class="form-label") }}
@@ -56,7 +56,7 @@
 </div>
 {% endif %}
 
-<a href="{{ url_for('tasks_by_topic', topic_id=task.topic_id) }}" class="btn btn-secondary mt-2">← Ко всем задачам темы</a>
+<a href="{{ url_for('group_tasks_list', group_id=group.id) }}" class="btn btn-secondary mt-2">← Ко всем задачам группы</a>
 
 <script>
     const textarea = document.getElementById('code-editor');

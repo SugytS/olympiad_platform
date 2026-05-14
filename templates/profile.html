@@ -1,9 +1,24 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container">
-    <h1 class="mb-4">Профиль: {{ user_name }}</h1>
     <div class="row">
-        <div class="col-md-6">
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-body text-center">
+                    {% if user_avatar %}
+                        <img src="{{ url_for('static', filename='avatars/' + user_avatar) }}" alt="Avatar" style="width: 150px; height: 150px; border-radius: 50%; object-fit: cover;" class="mb-3">
+                    {% else %}
+                        <div style="width: 150px; height: 150px; border-radius: 50%; background-color: #6c757d; margin: 0 auto; display: flex; align-items: center; justify-content: center; color: white; font-size: 48px;">
+                            {{ user_name[0]|upper }}
+                        </div>
+                    {% endif %}
+                    <h3>{{ user_name }}</h3>
+                    <p class="text-muted">{{ user_about or 'Нет описания' }}</p>
+                    <a href="{{ url_for('edit_profile') }}" class="btn btn-outline-primary">Редактировать профиль</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-8">
             <div class="card mb-4">
                 <div class="card-header">Общая статистика</div>
                 <div class="card-body">
@@ -12,8 +27,7 @@
                     <p><strong>🏆 Место в рейтинге:</strong> {{ user_rank if user_rank else '—' }}</p>
                 </div>
             </div>
-        </div>
-        <div class="col-md-6">
+
             <div class="card mb-4">
                 <div class="card-header">Распределение по темам</div>
                 <div class="card-body">
@@ -29,12 +43,19 @@
                 <div class="card-body">
                     <table class="table table-striped">
                         <thead>
-                            <tr><th>Место</th><th>Имя пользователя</th><th>Решено задач</th></tr>
+                            <tr><th>Место</th><th>Аватар</th><th>Имя пользователя</th><th>Решено задач</th></tr>
                         </thead>
                         <tbody>
                             {% for r in rating %}
                             <tr {% if r.name == user_name %}class="table-primary"{% endif %}>
                                 <td>{{ r.rank }}</td>
+                                <td>
+                                    {% if r.avatar %}
+                                        <img src="{{ url_for('static', filename='avatars/' + r.avatar) }}" alt="avatar" style="width: 30px; height: 30px; border-radius: 50%; object-fit: cover;">
+                                    {% else %}
+                                        <div style="width: 30px; height: 30px; border-radius: 50%; background-color: #ccc;"></div>
+                                    {% endif %}
+                                </td>
                                 <td>{{ r.name }}</td>
                                 <td>{{ r.solved }}</td>
                             </tr>

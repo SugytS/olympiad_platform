@@ -23,6 +23,16 @@ from forms.admin import TopicForm, TaskForm, GroupForm, GroupTaskForm
 from api.tasks_api import TaskResource, TaskListResource, SubmissionResource
 from utils.auth import admin_required, super_admin_required
 
+from datetime import datetime, timedelta
+from forms.user import EditProfileForm
+from utils.avatar_helper import save_avatar, delete_avatar
+
+from flask import session as flask_session
+from datetime import datetime, timedelta
+
+from datetime import datetime, timedelta
+from flask import session as flask_session
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_secret_key_here_change_in_production'
 app.config['PERMANENT_SESSION_LIFETIME'] = 365 * 24 * 3600
@@ -120,6 +130,11 @@ def task_detail(task_id):
         if not task:
             flash('Задача не найдена', 'danger')
             return redirect(url_for('topics_list'))
+        previous_submissions = session.query(Submission).filter(
+            Submission.task_id == task_id,
+            Submission.user_id == current_user.id
+        ).order_by(Submission.created_at.desc()).all()
+    temp_code = flask_session.pop('temp_code', None)
     if form.validate_on_submit():
         code = form.code.data
         language = form.language.data
@@ -129,10 +144,10 @@ def task_detail(task_id):
             ext = filename.split('.')[-1].lower()
             if language == 'python' and ext != 'py':
                 flash('Для Python нужно загрузить файл .py', 'danger')
-                return render_template('task_detail.html', task=task, form=form)
+                return render_template('task_detail.html', task=task, form=form, previous_submissions=previous_submissions)
             if language == 'cpp' and ext not in ['cpp', 'cc', 'cxx']:
                 flash('Для C++ нужно загрузить файл .cpp', 'danger')
-                return render_template('task_detail.html', task=task, form=form)
+                return render_template('task_detail.html', task=task, form=form, previous_submissions=previous_submissions)
             code = file.read().decode('utf-8')
         with db_session.session_scope() as session:
             submission = Submission(
@@ -153,8 +168,12 @@ def task_detail(task_id):
             sub.details = details
             session.commit()
         flash(f'Результат: {status}', 'info')
+        if status != 'OK':
+            flask_session['temp_code'] = code
         return render_template('submission_result.html', submission=sub)
-    return render_template('task_detail.html', task=task, form=form)
+    if temp_code:
+        form.code.data = temp_code
+    return render_template('task_detail.html', task=task, form=form, previous_submissions=previous_submissions)
 
 # ========== АУТЕНТИФИКАЦИЯ ==========
 @app.route('/register', methods=['GET', 'POST'])
@@ -196,7 +215,7 @@ def logout():
     flash('Вы вышли из системы', 'info')
     return redirect(url_for('index'))
 
-# ========== ПРОФИЛЬ И РЕЙТИНГ ==========
+
 @app.route('/profile')
 @login_required
 def profile():
@@ -214,19 +233,22 @@ def profile():
         all_users = session.query(User).all()
         user_solved = {}
         for u in all_users:
-            cnt = session.query(Submission).filter(Submission.user_id == u.id, Submission.status == 'OK').distinct(Submission.task_id).count()
-            user_solved[u.id] = (u.name, cnt)
+            cnt = session.query(Submission).filter(Submission.user_id == u.id, Submission.status == 'OK').distinct(
+                Submission.task_id).count()
+            user_solved[u.id] = (u.name, cnt, u.avatar_filename)
         sorted_users = sorted(user_solved.items(), key=lambda x: x[1][1], reverse=True)
         rating = []
         cur_rank = None
-        for idx, (uid, (name, cnt)) in enumerate(sorted_users, 1):
-            rating.append({'rank': idx, 'name': name, 'solved': cnt})
+        for idx, (uid, (name, cnt, avatar)) in enumerate(sorted_users, 1):
+            rating.append({'rank': idx, 'name': name, 'solved': cnt, 'avatar': avatar})
             if uid == current_user.id:
                 cur_rank = idx
+
         return render_template('profile.html',
-            total_solved=total_solved, total_attempts=total_attempts,
-            topics=list(topic_stats.keys()), solved_counts=list(topic_stats.values()),
-            rating=rating[:10], user_rank=cur_rank, user_name=current_user.name)
+                               total_solved=total_solved, total_attempts=total_attempts,
+                               topics=list(topic_stats.keys()), solved_counts=list(topic_stats.values()),
+                               rating=rating[:10], user_rank=cur_rank, user_name=current_user.name,
+                               user_about=current_user.about, user_avatar=current_user.avatar_filename)
 
 @app.route('/rating')
 def rating():
@@ -235,21 +257,25 @@ def rating():
         user_solved = {}
         for u in all_users:
             cnt = session.query(Submission).filter(Submission.user_id == u.id, Submission.status == 'OK').distinct(Submission.task_id).count()
-            user_solved[u.id] = (u.name, cnt)
+            user_solved[u.id] = (u.name, cnt, u.avatar_filename)
         sorted_users = sorted(user_solved.items(), key=lambda x: x[1][1], reverse=True)
-        rating = [{'rank': idx, 'name': name, 'solved': cnt} for idx, (_, (name, cnt)) in enumerate(sorted_users, 1)]
+        rating = [{'rank': idx, 'name': name, 'solved': cnt, 'avatar': avatar} for idx, (_, (name, cnt, avatar)) in enumerate(sorted_users, 1)]
         return render_template('rating.html', rating=rating)
 
 # ========== АДМИН-ПАНЕЛЬ ==========
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
-    with db_session.session_scope() as session:
-        return render_template('admin/dashboard.html',
-            topics_count=session.query(Topic).count(),
-            tasks_count=session.query(Task).count(),
-            users_count=session.query(User).count(),
-            submissions_count=session.query(Submission).count())
+    if current_user.is_super_admin:
+        with db_session.session_scope() as session:
+            return render_template('admin/dashboard.html',
+                topics_count=session.query(Topic).count(),
+                tasks_count=session.query(Task).count(),
+                users_count=session.query(User).count(),
+                submissions_count=session.query(Submission).count())
+    else:
+        # Обычный админ перенаправляется на управление группами
+        return redirect(url_for('admin_groups'))
 
 # --- Управление пользователями (только супер-админ) ---
 @app.route('/admin/users')
@@ -272,16 +298,16 @@ def toggle_admin(user_id):
             flash('Нельзя изменить свои права', 'danger')
     return redirect(url_for('admin_users'))
 
-# --- Управление темами (с учётом прав) ---
+# --- Управление темами (только супер-админ) ---
 @app.route('/admin/topics')
-@admin_required
+@super_admin_required
 def admin_topics():
     with db_session.session_scope() as session:
         topics = session.query(Topic).order_by(Topic.order).all()
         return render_template('admin/topics.html', topics=topics)
 
 @app.route('/admin/topics/add', methods=['GET', 'POST'])
-@admin_required
+@super_admin_required
 def add_topic():
     form = TopicForm()
     if form.validate_on_submit():
@@ -301,19 +327,12 @@ def add_topic():
     return render_template('admin/topic_form.html', form=form, title='Добавить тему')
 
 @app.route('/admin/topics/edit/<int:topic_id>', methods=['GET', 'POST'])
-@admin_required
+@super_admin_required
 def edit_topic(topic_id):
     with db_session.session_scope() as session:
         topic = session.query(Topic).get(topic_id)
         if not topic:
             flash('Тема не найдена', 'danger')
-            return redirect(url_for('admin_topics'))
-        # Проверка прав
-        if topic.is_system and not current_user.is_super_admin:
-            flash('Системную тему может редактировать только владелец.', 'danger')
-            return redirect(url_for('admin_topics'))
-        if not topic.is_system and topic.created_by != current_user.id and not current_user.is_super_admin:
-            flash('Вы можете редактировать только свои темы.', 'danger')
             return redirect(url_for('admin_topics'))
         form = TopicForm(obj=topic)
         if form.validate_on_submit():
@@ -327,33 +346,27 @@ def edit_topic(topic_id):
     return render_template('admin/topic_form.html', form=form, title='Редактировать тему', topic=topic)
 
 @app.route('/admin/topics/delete/<int:topic_id>')
-@admin_required
+@super_admin_required
 def delete_topic(topic_id):
     with db_session.session_scope() as session:
         topic = session.query(Topic).get(topic_id)
         if topic:
-            if topic.is_system and not current_user.is_super_admin:
-                flash('Системную тему может удалить только владелец.', 'danger')
-                return redirect(url_for('admin_topics'))
-            if not topic.is_system and topic.created_by != current_user.id and not current_user.is_super_admin:
-                flash('Вы можете удалять только свои темы.', 'danger')
-                return redirect(url_for('admin_topics'))
             session.query(Task).filter(Task.topic_id == topic_id).delete()
             session.delete(topic)
             session.commit()
             flash('Тема и её задачи удалены', 'success')
     return redirect(url_for('admin_topics'))
 
-# --- Управление задачами (с учётом прав) ---
+# --- Управление задачами (только супер-админ) ---
 @app.route('/admin/tasks')
-@admin_required
+@super_admin_required
 def admin_tasks():
     with db_session.session_scope() as session:
         tasks = session.query(Task).all()
         return render_template('admin/tasks.html', tasks=tasks)
 
 @app.route('/admin/tasks/add', methods=['GET', 'POST'])
-@admin_required
+@super_admin_required
 def add_task():
     form = TaskForm()
     with db_session.session_scope() as session:
@@ -383,18 +396,12 @@ def add_task():
     return render_template('admin/task_form.html', form=form, title='Добавить задачу')
 
 @app.route('/admin/tasks/edit/<int:task_id>', methods=['GET', 'POST'])
-@admin_required
+@super_admin_required
 def edit_task(task_id):
     with db_session.session_scope() as session:
         task = session.query(Task).get(task_id)
         if not task:
             flash('Задача не найдена', 'danger')
-            return redirect(url_for('admin_tasks'))
-        if task.is_system and not current_user.is_super_admin:
-            flash('Системную задачу может редактировать только владелец.', 'danger')
-            return redirect(url_for('admin_tasks'))
-        if not task.is_system and task.created_by != current_user.id and not current_user.is_super_admin:
-            flash('Вы можете редактировать только свои задачи.', 'danger')
             return redirect(url_for('admin_tasks'))
         form = TaskForm(obj=task)
         form.topic_id.choices = [(t.id, t.title) for t in session.query(Topic).all()]
@@ -417,28 +424,25 @@ def edit_task(task_id):
     return render_template('admin/task_form.html', form=form, title='Редактировать задачу', task=task)
 
 @app.route('/admin/tasks/delete/<int:task_id>')
-@admin_required
+@super_admin_required
 def delete_task(task_id):
     with db_session.session_scope() as session:
         task = session.query(Task).get(task_id)
         if task:
-            if task.is_system and not current_user.is_super_admin:
-                flash('Системную задачу может удалить только владелец.', 'danger')
-                return redirect(url_for('admin_tasks'))
-            if not task.is_system and task.created_by != current_user.id and not current_user.is_super_admin:
-                flash('Вы можете удалять только свои задачи.', 'danger')
-                return redirect(url_for('admin_tasks'))
             session.delete(task)
             session.commit()
             flash('Задача удалена', 'success')
     return redirect(url_for('admin_tasks'))
 
-# ========== ГРУППЫ (админ-панель) ==========
+# ========== ГРУППЫ (доступно для всех админов) ==========
 @app.route('/admin/groups')
 @admin_required
 def admin_groups():
     with db_session.session_scope() as session:
-        groups = session.query(Group).filter(Group.created_by == current_user.id).all()
+        if current_user.is_super_admin:
+            groups = session.query(Group).all()
+        else:
+            groups = session.query(Group).filter(Group.created_by == current_user.id).all()
         return render_template('admin/groups.html', groups=groups)
 
 @app.route('/admin/groups/add', methods=['GET', 'POST'])
@@ -463,7 +467,10 @@ def add_group():
 def group_detail(group_id):
     with db_session.session_scope() as session:
         group = session.query(Group).get(group_id)
-        if not group or group.created_by != current_user.id:
+        if not group:
+            flash('Группа не найдена', 'danger')
+            return redirect(url_for('admin_groups'))
+        if not (current_user.is_super_admin or group.created_by == current_user.id):
             flash('Доступ запрещён', 'danger')
             return redirect(url_for('admin_groups'))
         members = session.query(GroupMember).filter(GroupMember.group_id == group_id).all()
@@ -476,7 +483,7 @@ def add_group_member(group_id):
     email = request.form.get('email')
     with db_session.session_scope() as session:
         group = session.query(Group).get(group_id)
-        if not group or group.created_by != current_user.id:
+        if not group or not (current_user.is_super_admin or group.created_by == current_user.id):
             flash('Доступ запрещён', 'danger')
             return redirect(url_for('admin_groups'))
         user = session.query(User).filter(User.email == email).first()
@@ -498,7 +505,7 @@ def add_group_member(group_id):
 def remove_group_member(group_id, user_id):
     with db_session.session_scope() as session:
         group = session.query(Group).get(group_id)
-        if not group or group.created_by != current_user.id:
+        if not group or not (current_user.is_super_admin or group.created_by == current_user.id):
             flash('Доступ запрещён', 'danger')
             return redirect(url_for('admin_groups'))
         member = session.query(GroupMember).filter_by(group_id=group_id, user_id=user_id).first()
@@ -514,7 +521,7 @@ def add_group_task(group_id):
     form = GroupTaskForm()
     with db_session.session_scope() as session:
         group = session.query(Group).get(group_id)
-        if not group or group.created_by != current_user.id:
+        if not group or not (current_user.is_super_admin or group.created_by == current_user.id):
             flash('Доступ запрещён', 'danger')
             return redirect(url_for('admin_groups'))
         if form.validate_on_submit():
@@ -545,7 +552,10 @@ def edit_group_task(group_id, task_id):
     with db_session.session_scope() as session:
         group = session.query(Group).get(group_id)
         task = session.query(GroupTask).get(task_id)
-        if not group or group.created_by != current_user.id or not task or task.group_id != group_id:
+        if not group or not task or task.group_id != group_id:
+            flash('Группа или задача не найдены', 'danger')
+            return redirect(url_for('admin_groups'))
+        if not (current_user.is_super_admin or group.created_by == current_user.id):
             flash('Доступ запрещён', 'danger')
             return redirect(url_for('admin_groups'))
         form = GroupTaskForm()
@@ -579,13 +589,60 @@ def delete_group_task(group_id, task_id):
     with db_session.session_scope() as session:
         group = session.query(Group).get(group_id)
         task = session.query(GroupTask).get(task_id)
-        if not group or group.created_by != current_user.id or not task or task.group_id != group_id:
+        if not group or not task or task.group_id != group_id:
+            flash('Группа или задача не найдены', 'danger')
+            return redirect(url_for('admin_groups'))
+        if not (current_user.is_super_admin or group.created_by == current_user.id):
             flash('Доступ запрещён', 'danger')
-        else:
-            session.delete(task)
-            session.commit()
-            flash('Задача удалена', 'success')
+            return redirect(url_for('admin_groups'))
+        session.delete(task)
+        session.commit()
+        flash('Задача удалена', 'success')
     return redirect(url_for('group_detail', group_id=group_id))
+
+@app.route('/admin/groups/<int:group_id>/task/<int:task_id>/submissions')
+@admin_required
+def group_task_submissions(group_id, task_id):
+    with db_session.session_scope() as session:
+        group = session.query(Group).get(group_id)
+        if not group:
+            flash('Группа не найдена', 'danger')
+            return redirect(url_for('admin_groups'))
+        if not (current_user.is_super_admin or group.created_by == current_user.id):
+            flash('Доступ запрещён', 'danger')
+            return redirect(url_for('admin_groups'))
+        task = session.query(GroupTask).filter(GroupTask.id == task_id, GroupTask.group_id == group_id).first()
+        if not task:
+            flash('Задача не найдена в этой группе', 'danger')
+            return redirect(url_for('group_detail', group_id=group_id))
+        submissions = session.query(GroupSubmission).filter(GroupSubmission.task_id == task_id).order_by(GroupSubmission.created_at.desc()).all()
+        return render_template('admin/group_submissions.html', group=group, task=task, submissions=submissions)
+
+@app.route('/admin/groups/<int:group_id>/submission/<int:submission_id>/set_status', methods=['POST'])
+@admin_required
+def set_group_submission_status(group_id, submission_id):
+    new_status = request.form.get('status')
+    if new_status not in ['OK', 'WA', 'RE', 'CE', 'TL', 'pending']:
+        flash('Неверный статус', 'danger')
+        return redirect(request.referrer or url_for('admin_groups'))
+    with db_session.session_scope() as session:
+        submission = session.query(GroupSubmission).get(submission_id)
+        if not submission:
+            flash('Решение не найдено', 'danger')
+            return redirect(url_for('admin_groups'))
+        # Проверяем, что задача принадлежит группе, а группа - текущему админу
+        task = session.query(GroupTask).get(submission.task_id)
+        if not task:
+            flash('Задача не найдена', 'danger')
+            return redirect(url_for('admin_groups'))
+        group = session.query(Group).get(task.group_id)
+        if not (current_user.is_super_admin or group.created_by == current_user.id):
+            flash('Доступ запрещён', 'danger')
+            return redirect(url_for('admin_groups'))
+        submission.status = new_status
+        session.commit()
+        flash(f'Статус решения изменён на {new_status}', 'success')
+    return redirect(request.referrer or url_for('group_detail', group_id=group_id))
 
 # ========== ПОЛЬЗОВАТЕЛЬСКИЕ МАРШРУТЫ ДЛЯ ГРУПП ==========
 @app.route('/my_groups')
@@ -621,12 +678,14 @@ def group_tasks_list(group_id):
                 task_status[t.id] = 'none'
         return render_template('group_tasks.html', group=group, tasks=tasks, task_status=task_status)
 
+
 @app.route('/group/task/<int:task_id>', methods=['GET', 'POST'])
 @login_required
 def group_task_detail(task_id):
     form = SubmissionForm()
     task = None
     group = None
+    previous_submissions = []
     with db_session.session_scope() as session:
         task = session.query(GroupTask).get(task_id)
         if not task:
@@ -637,6 +696,12 @@ def group_task_detail(task_id):
         if not is_member and group.created_by != current_user.id:
             flash('Доступ запрещён', 'danger')
             return redirect(url_for('my_groups'))
+        previous_submissions = session.query(GroupSubmission).filter(
+            GroupSubmission.task_id == task_id,
+            GroupSubmission.user_id == current_user.id
+        ).order_by(GroupSubmission.created_at.desc()).all()
+
+    temp_code = flask_session.pop('temp_code', None)
     if form.validate_on_submit():
         code = form.code.data
         language = form.language.data
@@ -646,10 +711,12 @@ def group_task_detail(task_id):
             ext = filename.split('.')[-1].lower()
             if language == 'python' and ext != 'py':
                 flash('Для Python нужен .py', 'danger')
-                return render_template('group_task_detail.html', task=task, form=form)
+                return render_template('group_task_detail.html', task=task, form=form, group=group,
+                                       previous_submissions=previous_submissions)
             if language == 'cpp' and ext not in ['cpp', 'cc', 'cxx']:
                 flash('Для C++ нужен .cpp', 'danger')
-                return render_template('group_task_detail.html', task=task, form=form)
+                return render_template('group_task_detail.html', task=task, form=form, group=group,
+                                       previous_submissions=previous_submissions)
             code = file.read().decode('utf-8')
         with db_session.session_scope() as session:
             submission = GroupSubmission(
@@ -670,8 +737,76 @@ def group_task_detail(task_id):
             sub.details = details
             session.commit()
         flash(f'Результат: {status}', 'info')
-        return render_template('group_submission_result.html', submission=sub)
-    return render_template('group_task_detail.html', task=task, form=form)
+        if status != 'OK':
+            flask_session['temp_code'] = code
+        # Передаём ID задачи и группы в шаблон
+        return render_template('group_submission_result.html',
+                               submission_id=sub.id,
+                               task_id=task.id,
+                               group_id=group.id,
+                               status=status,
+                               language=language,
+                               details=details)
+    if temp_code:
+        form.code.data = temp_code
+    return render_template('group_task_detail.html', task=task, form=form, group=group,
+                           previous_submissions=previous_submissions)
+
+@app.route('/edit_profile', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    form = EditProfileForm()
+    if form.validate_on_submit():
+        with db_session.session_scope() as session:
+            user = session.query(User).get(current_user.id)
+            user.name = form.name.data
+            user.about = form.about.data
+            if form.avatar.data:
+                # Удаляем старый аватар
+                if user.avatar_filename:
+                    delete_avatar(user.avatar_filename)
+                # Сохраняем новый
+                filename = save_avatar(form.avatar.data, user.id)
+                user.avatar_filename = filename
+            session.commit()
+        flash('Профиль обновлён', 'success')
+        return redirect(url_for('profile'))
+    # Заполняем форму текущими данными
+    form.name.data = current_user.name
+    form.about.data = current_user.about
+    return render_template('edit_profile.html', form=form)
+
+@app.route('/group/<int:group_id>/rating')
+@login_required
+def group_rating(group_id):
+    with db_session.session_scope() as session:
+        group = session.query(Group).get(group_id)
+        if not group:
+            flash('Группа не найдена', 'danger')
+            return redirect(url_for('my_groups'))
+        is_member = session.query(GroupMember).filter_by(group_id=group_id, user_id=current_user.id).first()
+        if not is_member and group.created_by != current_user.id:
+            flash('Доступ запрещён', 'danger')
+            return redirect(url_for('my_groups'))
+        members = session.query(GroupMember).filter(GroupMember.group_id == group_id).all()
+        group_rating = []
+        for member in members:
+            user = member.user
+            solved_count = session.query(GroupSubmission).filter(
+                GroupSubmission.user_id == user.id,
+                GroupSubmission.status == 'OK'
+            ).join(GroupTask).filter(GroupTask.group_id == group_id).distinct(GroupSubmission.task_id).count()
+            group_rating.append({
+                'user': user,
+                'solved': solved_count,
+                'avatar': user.avatar_filename
+            })
+        group_rating.sort(key=lambda x: x['solved'], reverse=True)
+        for idx, item in enumerate(group_rating, 1):
+            item['rank'] = idx
+        return render_template('group_rating.html', group=group, rating=group_rating)
+
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

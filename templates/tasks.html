@@ -54,11 +54,7 @@
                             <h5 class="mb-1">{{ task.title }}</h5>
                             <small class="text-muted">Ограничение времени: {{ task.time_limit }} сек.</small>
                         </div>
-                        {% if status == 'solved' %}
-                            <span class="badge bg-success">Решено ✓</span>
-                        {% elif status == 'attempted' %}
-                            <span class="badge bg-danger">Попытка ✗</span>
-                        {% endif %}
+                        <!-- Убраны бейджи "Решено ✓" и "Попытка ✗" -->
                     </div>
                 </a>
             {% endfor %}
@@ -85,9 +81,8 @@
     }
 </style>
 
-<!-- Скрипт для сохранения активной вкладки (опционально) -->
+<!-- Скрипт для сохранения активной вкладки -->
 <script>
-    // Сохраняем активную вкладку в localStorage
     document.addEventListener('DOMContentLoaded', function() {
         const activeTab = localStorage.getItem('activeTopicTab');
         if (activeTab) {
@@ -97,8 +92,6 @@
                 tab.show();
             }
         }
-
-        // Сохраняем выбор при переключении
         const tabs = document.querySelectorAll('#topicTabs button');
         tabs.forEach(tab => {
             tab.addEventListener('shown.bs.tab', function(event) {

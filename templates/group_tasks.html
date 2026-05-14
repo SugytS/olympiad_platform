@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ group.name }}</h1>
+<p>{{ group.description }}</p>
+<a href="{{ url_for('group_rating', group_id=group.id) }}" class="btn btn-info mb-3">Рейтинг группы</a>
+<h3 class="mb-3">Задачи группы</h3>
+<div class="list-group">
+    {% for task in tasks %}
+        {% set status = task_status.get(task.id, 'none') %}
+        <a href="{{ url_for('group_task_detail', task_id=task.id) }}" class="list-group-item list-group-item-action
+            {% if status == 'solved' %}bg-success-subtle border-success{% elif status == 'attempted' %}bg-danger-subtle border-danger{% endif %}">
+            <div class="d-flex w-100 justify-content-between">
+                <div>
+                    <h5 class="mb-1">{{ task.title }}</h5>
+                    <small class="text-muted">Ограничение времени: {{ task.time_limit }} сек.</small>
+                </div>
+                <!-- Убраны бейджи "Решено ✓" и "Попытка ✗" -->
+            </div>
+        </a>
+    {% else %}
+        <div class="alert alert-info">В этой группе пока нет задач.</div>
+    {% endfor %}
+</div>
+
+<a href="{{ url_for('my_groups') }}" class="btn btn-secondary mt-3">← К списку групп</a>
+
+<style>
+    .bg-success-subtle { background-color: #d1e7dd !important; }
+    .bg-danger-subtle { background-color: #f8d7da !important; }
+    .border-success { border-left: 4px solid #198754; }
+    .border-danger { border-left: 4px solid #dc3545; }
+</style>
+{% endblock %}
