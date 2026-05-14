@@ -1,63 +1,156 @@
 {% extends "base.html" %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
 {% block content %}
-<div class="container">
-    <div class="row">
-        <div class="col-md-4">
-            <div class="card mb-4">
-                <div class="card-body text-center">
-                    {% if user_avatar %}
-                        <img src="{{ url_for('static', filename='avatars/' + user_avatar) }}" alt="Avatar" style="width: 150px; height: 150px; border-radius: 50%; object-fit: cover;" class="mb-3">
-                    {% else %}
-                        <div style="width: 150px; height: 150px; border-radius: 50%; background-color: #6c757d; margin: 0 auto; display: flex; align-items: center; justify-content: center; color: white; font-size: 48px;">
-                            {{ user_name[0]|upper }}
-                        </div>
-                    {% endif %}
-                    <h3>{{ user_name }}</h3>
-                    <p class="text-muted">{{ user_about or 'Нет описания' }}</p>
-                    <a href="{{ url_for('edit_profile') }}" class="btn btn-outline-primary">Редактировать профиль</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-8">
-            <div class="card mb-4">
-                <div class="card-header">Общая статистика</div>
-                <div class="card-body">
-                    <p><strong>✅ Решено задач:</strong> {{ total_solved }}</p>
-                    <p><strong>📝 Всего попыток:</strong> {{ total_attempts }}</p>
-                    <p><strong>🏆 Место в рейтинге:</strong> {{ user_rank if user_rank else '—' }}</p>
-                </div>
-            </div>
-
-            <div class="card mb-4">
-                <div class="card-header">Распределение по темам</div>
-                <div class="card-body">
-                    <canvas id="topicsChart" width="400" height="300"></canvas>
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card app-card mb-0 h-100">
+            <div class="card-body text-center py-4">
+                {% if user_avatar %}
+                    <img src="{{ url_for('static', filename='avatars/' + user_avatar) }}" alt="" class="avatar-ring mb-3">
+                {% else %}
+                    <div class="avatar-placeholder-lg mb-3">{{ user_name[0]|upper }}</div>
+                {% endif %}
+                <h2 class="h5 mb-1">{{ user_name }}</h2>
+                <p class="text-muted small mb-4">{{ user_about or 'Нет описания' }}</p>
+                <a href="{{ url_for('edit_profile') }}" class="btn btn-outline-primary btn-sm">Редактировать профиль</a>
+                <div class="profile-theme-row">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="judgeliteThemeToggle" autocomplete="off">
+                        <label class="form-check-label" for="judgeliteThemeToggle">Тёмная тема</label>
+                    </div>
+                    <p class="small text-muted mb-0 mt-2">Сохраняется в этом браузере и применяется ко всему сайту.</p>
                 </div>
             </div>
         </div>
     </div>
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">Топ-10 пользователей</div>
-                <div class="card-body">
-                    <table class="table table-striped">
+    <div class="col-lg-8">
+        <div class="card app-card mb-4">
+            <div class="card-header border-0 pb-0">Сводка</div>
+            <div class="card-body pt-3">
+                <div class="stat-grid">
+                    <div class="stat-tile">
+                        <div class="label">Решено</div>
+                        <div class="value">{{ total_solved }}</div>
+                        <div class="hint">из {{ total_tasks }} задач на платформе</div>
+                    </div>
+                    <div class="stat-tile">
+                        <div class="label">Попыток</div>
+                        <div class="value">{{ total_attempts }}</div>
+                        <div class="hint">всего отправок</div>
+                    </div>
+                    <div class="stat-tile">
+                        <div class="label">Успешность</div>
+                        <div class="value">{{ ok_rate }}%</div>
+                        <div class="hint">доля AC среди всех отправок</div>
+                    </div>
+                    <div class="stat-tile">
+                        <div class="label">Задач с попытками</div>
+                        <div class="value">{{ tasks_attempted }}</div>
+                        <div class="hint">уникальных задач</div>
+                    </div>
+                    <div class="stat-tile">
+                        <div class="label">Рейтинг</div>
+                        <div class="value">{% if user_rank %}{{ user_rank }}{% else %}—{% endif %}</div>
+                        <div class="hint">из {{ total_users }} пользователей</div>
+                    </div>
+                    {% if avg_attempts_per_solved is not none %}
+                    <div class="stat-tile">
+                        <div class="label">Попыток на задачу</div>
+                        <div class="value">{{ avg_attempts_per_solved }}</div>
+                        <div class="hint">отправок на одну принятую задачу</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <div class="col-md-6">
+                <div class="card app-card h-100">
+                    <div class="card-header">Решённые задачи по темам</div>
+                    <div class="card-body">
+                        {% if topics and solved_counts %}
+                        <div class="chart-box">
+                            <canvas id="topicsChart" aria-label="График по темам"></canvas>
+                        </div>
+                        <p class="chart-caption mb-0">Распределение уже принятых решений по разделам курса.</p>
+                        {% else %}
+                        <p class="text-muted small mb-0">Пока нет принятых решений с привязкой к теме — решите задачу из каталога тем.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card app-card h-100">
+                    <div class="card-header">Верно / неверно по задачам</div>
+                    <div class="card-body">
+                        {% if tasks_attempted > 0 %}
+                        <div class="chart-box">
+                            <canvas id="verdictChart" aria-label="Верно и неверно по задачам"></canvas>
+                        </div>
+                        <p class="chart-caption mb-0">Среди задач, по которым вы отправляли код на проверку: с принятым решением (AC) и пока без AC. Статус «в очереди» не показывается — учитывается только факт наличия или отсутствия AC по задаче.</p>
+                        {% else %}
+                        <p class="text-muted small mb-0">Отправьте решение хотя бы по одной задаче — здесь появится доля верных и неверных задач.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card app-card mb-4">
+            <div class="card-header">Активность за 14 дней</div>
+            <div class="card-body">
+                <div class="chart-box" style="min-height: 200px;">
+                    <canvas id="activityChart" aria-label="Активность по дням"></canvas>
+                </div>
+                <p class="chart-caption mb-0">Число отправок решений по календарным дням.</p>
+            </div>
+        </div>
+
+        {% if lang_labels and lang_counts %}
+        <div class="card app-card mb-4">
+            <div class="card-header">Языки отправок</div>
+            <div class="card-body">
+                <div class="chart-box" style="min-height: 180px;">
+                    <canvas id="langChart" aria-label="Языки"></canvas>
+                </div>
+                <p class="chart-caption mb-0">На каких языках вы чаще всего отправляете код.</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4 mt-1">
+    <div class="col-12">
+        <div class="card app-card">
+            <div class="card-header">Топ-10 пользователей</div>
+            <div class="card-body p-0">
+                <div class="app-table-wrap">
+                    <table class="table table-striped table-hover mb-0">
                         <thead>
-                            <tr><th>Место</th><th>Аватар</th><th>Имя пользователя</th><th>Решено задач</th></tr>
+                            <tr>
+                                <th class="ps-3">Место</th>
+                                <th></th>
+                                <th>Имя</th>
+                                <th class="pe-3">Решено</th>
+                            </tr>
                         </thead>
                         <tbody>
                             {% for r in rating %}
                             <tr {% if r.name == user_name %}class="table-primary"{% endif %}>
-                                <td>{{ r.rank }}</td>
-                                <td>
+                                <td class="ps-3">{{ r.rank }}</td>
+                                <td style="width:48px;">
                                     {% if r.avatar %}
-                                        <img src="{{ url_for('static', filename='avatars/' + r.avatar) }}" alt="avatar" style="width: 30px; height: 30px; border-radius: 50%; object-fit: cover;">
+                                        <img src="{{ url_for('static', filename='avatars/' + r.avatar) }}" alt="" class="rounded-circle" style="width:32px;height:32px;object-fit:cover;">
                                     {% else %}
-                                        <div style="width: 30px; height: 30px; border-radius: 50%; background-color: #ccc;"></div>
+                                        <div class="rounded-circle bg-light border" style="width:32px;height:32px;"></div>
                                     {% endif %}
                                 </td>
                                 <td>{{ r.name }}</td>
-                                <td>{{ r.solved }}</td>
+                                <td class="pe-3">{{ r.solved }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -68,25 +161,203 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-    const ctx = document.getElementById('topicsChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: {{ topics|tojson }},
-            datasets: [{
-                data: {{ solved_counts|tojson }},
-                backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF']
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { position: 'right' },
-                tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw} задач` } }
-            }
+(function () {
+    const rootStyle = getComputedStyle(document.documentElement);
+    const accent = rootStyle.getPropertyValue('--app-accent').trim() || '#2d6a4f';
+    const donutBorder = rootStyle.getPropertyValue('--chart-donut-border').trim() || '#ffffff';
+    const gridColor = rootStyle.getPropertyValue('--chart-grid').trim() || 'rgba(0,0,0,0.06)';
+    const chartMuted = rootStyle.getPropertyValue('--chart-muted').trim() || '#6b6b6b';
+    const wrongSlice = '#b45309';
+    const topicHues = [152, 168, 142, 130, 175, 118, 160, 145];
+
+    function topicColors(n) {
+        return Array.from({ length: n }, (_, i) => {
+            const h = topicHues[i % topicHues.length];
+            const l = 38 + (i % 4) * 4;
+            return `hsl(${h}, 32%, ${l}%)`;
+        });
+    }
+
+    Chart.defaults.font.family = "'DM Sans', system-ui, sans-serif";
+    Chart.defaults.color = chartMuted;
+
+    const topicsLabels = {{ topics|tojson }};
+    const topicsData = {{ solved_counts|tojson }};
+    const elTopics = document.getElementById('topicsChart');
+    if (elTopics && topicsLabels.length) {
+        new Chart(elTopics, {
+            type: 'doughnut',
+            data: {
+                labels: topicsLabels,
+                datasets: [{
+                    data: topicsData,
+                    backgroundColor: topicColors(topicsLabels.length),
+                    borderWidth: 2,
+                    borderColor: donutBorder,
+                    hoverOffset: 6,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '58%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 10, padding: 12, usePointStyle: true },
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                const v = ctx.raw;
+                                const pct = total ? ((100 * v / total).toFixed(1)) : 0;
+                                return ` ${ctx.label}: ${v} (${pct}%)`;
+                            },
+                        },
+                    },
+                },
+            },
+        });
+    }
+
+    const verdictLabels = {{ task_verdict_labels|tojson }};
+    const verdictData = {{ task_verdict_counts|tojson }};
+    const elVerdict = document.getElementById('verdictChart');
+    if (elVerdict && verdictData.length && verdictData.reduce(function (a, b) { return a + b; }, 0) > 0) {
+        new Chart(elVerdict, {
+            type: 'doughnut',
+            data: {
+                labels: verdictLabels,
+                datasets: [{
+                    data: verdictData,
+                    backgroundColor: [accent, wrongSlice],
+                    borderWidth: 2,
+                    borderColor: donutBorder,
+                    hoverOffset: 6,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '52%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 10, padding: 12, usePointStyle: true },
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                const v = ctx.raw;
+                                const pct = total ? ((100 * v / total).toFixed(1)) : 0;
+                                return ` ${ctx.label}: ${v} задач (${pct}%)`;
+                            },
+                        },
+                    },
+                },
+            },
+        });
+    }
+
+    const actLabels = {{ activity_labels|tojson }};
+    const actValues = {{ activity_values|tojson }};
+    const elAct = document.getElementById('activityChart');
+    if (elAct) {
+        new Chart(elAct, {
+            type: 'line',
+            data: {
+                labels: actLabels,
+                datasets: [{
+                    label: 'Отправок',
+                    data: actValues,
+                    borderColor: accent,
+                    backgroundColor: accent + '14',
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    pointBackgroundColor: accent,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0, stepSize: 1 },
+                        grid: { color: gridColor },
+                    },
+                    x: {
+                        grid: { display: false },
+                    },
+                },
+                plugins: {
+                    legend: { display: false },
+                },
+            },
+        });
+    }
+
+    const langLabels = {{ lang_labels|tojson }};
+    const langData = {{ lang_counts|tojson }};
+    const elLang = document.getElementById('langChart');
+    if (elLang && langLabels && langLabels.length) {
+        new Chart(elLang, {
+            type: 'bar',
+            data: {
+                labels: langLabels,
+                datasets: [{
+                    data: langData,
+                    backgroundColor: topicColors(langLabels.length),
+                    borderRadius: 6,
+                    maxBarThickness: 36,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 },
+                        grid: { color: gridColor },
+                    },
+                    x: { grid: { display: false } },
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => ` ${ctx.formattedValue} отправок`,
+                        },
+                    },
+                },
+            },
+        });
+    }
+})();
+</script>
+<script>
+(function () {
+    var el = document.getElementById('judgeliteThemeToggle');
+    if (!el) return;
+    el.checked = document.documentElement.getAttribute('data-theme') === 'dark';
+    el.addEventListener('change', function () {
+        var dark = this.checked;
+        try {
+            localStorage.setItem('judgelite-theme', dark ? 'dark' : 'light');
+        } catch (e) {}
+        if (dark) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+            document.documentElement.removeAttribute('data-theme');
         }
+        location.reload();
     });
+})();
 </script>
 {% endblock %}

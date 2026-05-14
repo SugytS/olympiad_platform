@@ -6,6 +6,8 @@ from flask_restful import Api
 from werkzeug.utils import secure_filename
 import json
 
+from sqlalchemy import func
+
 from data import db_session
 from data.users import User
 from data.topics import Topic
@@ -224,12 +226,48 @@ def profile():
             Submission.user_id == current_user.id, Submission.status == 'OK').all()}
         total_solved = len(solved_task_ids)
         total_attempts = session.query(Submission).filter(Submission.user_id == current_user.id).count()
+        tasks_attempted = session.query(Submission.task_id).filter(
+            Submission.user_id == current_user.id).distinct().count()
+        ok_rate = round(100.0 * total_solved / total_attempts, 1) if total_attempts else 0.0
+        avg_attempts_per_solved = round(total_attempts / total_solved, 2) if total_solved else None
+
         topic_stats = defaultdict(int)
         for tid in solved_task_ids:
             task = session.query(Task).get(tid)
             if task and task.topic:
                 topic_stats[task.topic.title] += 1
-        # Рейтинг
+
+        attempted_task_ids = {row[0] for row in session.query(Submission.task_id).filter(
+            Submission.user_id == current_user.id).distinct().all()}
+        tasks_without_ac = len(attempted_task_ids - solved_task_ids)
+        task_verdict_labels = ['Верно', 'Неверно']
+        task_verdict_counts = [total_solved, tasks_without_ac]
+
+        lang_rows = session.query(Submission.language, func.count(Submission.id)).filter(
+            Submission.user_id == current_user.id).group_by(Submission.language).all()
+        lang_rows_sorted = sorted(lang_rows, key=lambda r: -r[1])
+        lang_labels = [l or '—' for l, _ in lang_rows_sorted]
+        lang_counts = [c for _, c in lang_rows_sorted]
+
+        now = datetime.now()
+        day_counts = defaultdict(int)
+        recent_subs = session.query(Submission.created_at).filter(
+            Submission.user_id == current_user.id,
+            Submission.created_at >= now - timedelta(days=14),
+        ).all()
+        for (created_at,) in recent_subs:
+            if created_at:
+                day_counts[created_at.date().isoformat()] += 1
+        activity_labels = []
+        activity_values = []
+        for i in range(14):
+            d = (now.date() - timedelta(days=13 - i))
+            activity_labels.append(d.strftime('%d.%m'))
+            activity_values.append(day_counts.get(d.isoformat(), 0))
+
+        total_tasks = session.query(Task).count()
+        total_users = session.query(User).count()
+
         all_users = session.query(User).all()
         user_solved = {}
         for u in all_users:
@@ -244,11 +282,30 @@ def profile():
             if uid == current_user.id:
                 cur_rank = idx
 
-        return render_template('profile.html',
-                               total_solved=total_solved, total_attempts=total_attempts,
-                               topics=list(topic_stats.keys()), solved_counts=list(topic_stats.values()),
-                               rating=rating[:10], user_rank=cur_rank, user_name=current_user.name,
-                               user_about=current_user.about, user_avatar=current_user.avatar_filename)
+        return render_template(
+            'profile.html',
+            title='Профиль',
+            total_solved=total_solved,
+            total_attempts=total_attempts,
+            tasks_attempted=tasks_attempted,
+            ok_rate=ok_rate,
+            avg_attempts_per_solved=avg_attempts_per_solved,
+            topics=list(topic_stats.keys()),
+            solved_counts=list(topic_stats.values()),
+            task_verdict_labels=task_verdict_labels,
+            task_verdict_counts=task_verdict_counts,
+            lang_labels=lang_labels,
+            lang_counts=lang_counts,
+            activity_labels=activity_labels,
+            activity_values=activity_values,
+            total_tasks=total_tasks,
+            total_users=total_users,
+            rating=rating[:10],
+            user_rank=cur_rank,
+            user_name=current_user.name,
+            user_about=current_user.about,
+            user_avatar=current_user.avatar_filename,
+        )
 
 @app.route('/rating')
 def rating():
