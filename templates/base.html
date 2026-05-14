@@ -17,9 +17,7 @@
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item"><a class="nav-link" href="{{ url_for('topics_list') }}">Темы</a></li>
                     {% if current_user.is_authenticated %}
-                        <!-- НОВЫЙ ПУНКТ -->
-                        <li class="nav-item"><a class="nav-link" href="{{ url_for('my_groups') }}">👥 Мои группы</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{{ url_for('profile') }}">Профиль</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('profile') }}">Мой профиль</a></li>
                         <li class="nav-item"><a class="nav-link" href="{{ url_for('rating') }}">Рейтинг</a></li>
                         {% if current_user.is_admin %}
                             <li class="nav-item dropdown">
@@ -28,7 +26,6 @@
                                     <li><a class="dropdown-item" href="{{ url_for('admin_dashboard') }}">Панель</a></li>
                                     <li><a class="dropdown-item" href="{{ url_for('admin_topics') }}">Темы</a></li>
                                     <li><a class="dropdown-item" href="{{ url_for('admin_tasks') }}">Задачи</a></li>
-                                    <li><a class="dropdown-item" href="{{ url_for('admin_groups') }}">Группы</a></li>
                                     {% if current_user.is_super_admin %}
                                         <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" href="{{ url_for('admin_users') }}">Пользователи</a></li>
