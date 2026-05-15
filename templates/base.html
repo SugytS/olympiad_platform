@@ -2,14 +2,31 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8">
+    <script>
+    (function () {
+        try {
+            if (localStorage.getItem('judgelite-theme') === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        } catch (e) {}
+    })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <title>{{ title }} | Olympiad Platform</title>
+    <link href="{{ url_for('static', filename='app.css') }}" rel="stylesheet">
+    <title>{% if title %}{{ title }} | {% endif %}JudgeLite</title>
+    {% block head %}{% endblock %}
 </head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+<body class="app-body {% block body_class %}{% endblock %}">
+    <nav class="navbar navbar-expand-lg app-navbar">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}">🏆 Olympiad Platform</a>
+            <a class="navbar-brand d-flex align-items-center gap-2" href="{{ url_for('index') }}">
+                <img src="{{ url_for('static', filename='judgelite-mark.png') }}" alt="" class="app-brand-mark" width="28" height="28">
+                <span>JudgeLite</span>
+            </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -22,7 +39,7 @@
                         <li class="nav-item"><a class="nav-link" href="{{ url_for('my_groups') }}">Мои группы</a></li>
                         {% if current_user.is_admin %}
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">⚙️ Админ</a>
+                                <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">Админ</a>
                                 <ul class="dropdown-menu">
                                     {% if current_user.is_super_admin %}
                                         <li><a class="dropdown-item" href="{{ url_for('admin_dashboard') }}">Панель</a></li>

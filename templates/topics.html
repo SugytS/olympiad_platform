@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="mb-4">Темы</h1>
+<h1 class="h3 mb-4">Темы</h1>
 <div class="row">
     {% for topic in topics %}
         <div class="col-md-6 col-lg-4 mb-4">
-            <div class="card h-100 shadow-sm">
+            <div class="card h-100 app-card">
                 <div class="card-body">
                     <h5 class="card-title">{{ topic.title }}</h5>
                     <p class="card-text">{{ topic.description[:150] }}{% if topic.description|length > 150 %}...{% endif %}</p>
