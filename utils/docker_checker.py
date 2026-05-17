@@ -3,7 +3,6 @@ import json
 import tempfile
 import time
 import os
-import requests.exceptions
 
 def run_code_in_docker(code, tests_json_str, language='python', time_limit=2.0):
     try:
@@ -44,10 +43,9 @@ def run_code_in_docker(code, tests_json_str, language='python', time_limit=2.0):
     except Exception as e:
         return 'CE', f'Не удалось создать контейнер: {e}'
 
-    # Компиляция для C++ с таймаутом 10 секунд
+    # Компиляция для C++ с таймаутом
     if compile_cmd:
         try:
-            # Используем timeout и для компиляции
             compile_cmd_with_timeout = ['sh', '-c', f'timeout 10s {" ".join(compile_cmd)}']
             exec_result = container.exec_run(compile_cmd_with_timeout, workdir='/code')
             if exec_result.exit_code != 0:
@@ -64,20 +62,28 @@ def run_code_in_docker(code, tests_json_str, language='python', time_limit=2.0):
 
     for i, test in enumerate(tests):
         input_data = test.get('input', '')
-        expected_output = test.get('output', '').strip()
+
+        # Поддержка нескольких правильных ответов
+        if 'outputs' in test:
+            expected_outputs = test['outputs']
+            if isinstance(expected_outputs, str):
+                expected_outputs = [expected_outputs]
+        elif 'output' in test:
+            expected_outputs = [test['output']]
+        else:
+            expected_outputs = ['']
+
+        # Нормализация: удаляем лишние пробелы в начале и конце для каждого варианта
+        expected_outputs = [s.strip() for s in expected_outputs]
+
         input_file = os.path.join(temp_dir, f'input_{i}.txt')
         with open(input_file, 'w', encoding='utf-8') as f:
             f.write(input_data)
 
-        # Команда с перенаправлением ввода и timeout
         cmd = f'{run_cmd_template} < /code/input_{i}.txt 2>&1'
         try:
             start_time = time.time()
-            exec_result = container.exec_run(
-                ['sh', '-c', cmd],
-                workdir='/code',
-                demux=False
-            )
+            exec_result = container.exec_run(['sh', '-c', cmd], workdir='/code', demux=False)
             elapsed = time.time() - start_time
 
             output = exec_result.output
@@ -85,7 +91,6 @@ def run_code_in_docker(code, tests_json_str, language='python', time_limit=2.0):
             actual_output = output_str.strip()
             exit_code = exec_result.exit_code
 
-            # Если утилита timeout убила процесс, exit_code == 124
             if exit_code == 124:
                 overall_status = 'TL'
                 results.append(f"Test {i+1}: Time limit exceeded (>{time_limit}s)")
@@ -96,11 +101,14 @@ def run_code_in_docker(code, tests_json_str, language='python', time_limit=2.0):
                 results.append(f"Test {i+1}: Runtime error (exit {exit_code})\n{output_str}")
                 continue
 
-            if actual_output != expected_output:
-                overall_status = 'WA'
-                results.append(f"Test {i+1}: WA\nExpected:\n{expected_output}\nGot:\n{actual_output}")
-            else:
+            # Проверка на один из допустимых выводов
+            if actual_output in expected_outputs:
                 results.append(f"Test {i+1}: OK ({elapsed:.3f}s)")
+            else:
+                overall_status = 'WA'
+                # Показываем все допустимые варианты в отчёте
+                expected_str = '\n'.join(expected_outputs)
+                results.append(f"Test {i+1}: WA\nExpected one of:\n{expected_str}\nGot:\n{actual_output}")
 
         except Exception as e:
             overall_status = 'CE'

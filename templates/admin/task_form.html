@@ -26,12 +26,13 @@
         </div>
     </div>
 
+    <!-- Новая форма тестов с поддержкой нескольких правильных выводов -->
     <div class="mb-3">
         <label class="form-label">Тесты (входные данные → ожидаемый вывод)</label>
         <div id="tests-container"></div>
         <button type="button" class="btn btn-secondary btn-sm mt-2" id="add-test-btn">+ Добавить тест</button>
         {{ form.tests_json(class="form-control d-none", id="tests-json") }}
-        <small class="text-muted">Тесты будут автоматически преобразованы в JSON.</small>
+        <small class="text-muted">Для каждого теста можно указать несколько правильных ответов (кнопка «+ ещё вариант»).</small>
     </div>
 
     <div class="row">
@@ -56,6 +57,15 @@
     let testsData = [];
     {% if task and task.tests_json %}
         testsData = {{ task.tests_json|safe }};
+        // Преобразуем старый формат (output: строка) в новый (outputs: массив)
+        for (let i = 0; i < testsData.length; i++) {
+            if (testsData[i].output !== undefined && testsData[i].outputs === undefined) {
+                testsData[i].outputs = [testsData[i].output];
+                delete testsData[i].output;
+            }
+            if (!testsData[i].outputs) testsData[i].outputs = [''];
+            if (typeof testsData[i].outputs === 'string') testsData[i].outputs = [testsData[i].outputs];
+        }
     {% endif %}
 
     const container = document.getElementById('tests-container');
@@ -65,46 +75,85 @@
         container.innerHTML = '';
         testsData.forEach((test, index) => {
             const testDiv = document.createElement('div');
-            testDiv.className = 'card mb-2';
+            testDiv.className = 'card mb-3';
             testDiv.innerHTML = `
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <strong>Тест №${index+1}</strong>
+                    <button type="button" class="btn btn-sm btn-danger remove-test">Удалить тест</button>
+                </div>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-5">
-                            <label class="form-label">Входные данные (input)</label>
-                            <textarea class="form-control test-input" rows="2">${escapeHtml(test.input)}</textarea>
-                        </div>
-                        <div class="col-md-5">
-                            <label class="form-label">Ожидаемый вывод (output)</label>
-                            <textarea class="form-control test-output" rows="2">${escapeHtml(test.output)}</textarea>
-                        </div>
-                        <div class="col-md-2 d-flex align-items-end">
-                            <button type="button" class="btn btn-danger btn-sm remove-test">Удалить</button>
-                        </div>
+                    <div class="mb-2">
+                        <label class="form-label">Входные данные (input)</label>
+                        <textarea class="form-control test-input" rows="2">${escapeHtml(test.input)}</textarea>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Правильные ответы (один или несколько)</label>
+                        <div class="outputs-container" data-test-index="${index}"></div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm add-output-option">+ Добавить вариант ответа</button>
                     </div>
                 </div>
             `;
-            const removeBtn = testDiv.querySelector('.remove-test');
-            removeBtn.addEventListener('click', () => {
+            const outputsContainer = testDiv.querySelector('.outputs-container');
+            const addOutputBtn = testDiv.querySelector('.add-output-option');
+
+            // Функция отрисовки вариантов выводов для этого теста
+            function renderOutputs() {
+                outputsContainer.innerHTML = '';
+                (test.outputs || ['']).forEach((outVal, outIdx) => {
+                    const outGroup = document.createElement('div');
+                    outGroup.className = 'input-group mb-2';
+                    outGroup.innerHTML = `
+                        <input type="text" class="form-control output-value" value="${escapeHtml(outVal)}" placeholder="Ожидаемый вывод">
+                        <button type="button" class="btn btn-danger remove-output">✖</button>
+                    `;
+                    const removeOutBtn = outGroup.querySelector('.remove-output');
+                    removeOutBtn.addEventListener('click', () => {
+                        test.outputs.splice(outIdx, 1);
+                        if (test.outputs.length === 0) test.outputs = [''];
+                        renderOutputs();
+                        updateJsonField();
+                    });
+                    const outputInput = outGroup.querySelector('.output-value');
+                    outputInput.addEventListener('change', (e) => {
+                        test.outputs[outIdx] = e.target.value;
+                        updateJsonField();
+                    });
+                    outputsContainer.appendChild(outGroup);
+                });
+            }
+
+            addOutputBtn.addEventListener('click', () => {
+                if (!test.outputs) test.outputs = [''];
+                test.outputs.push('');
+                renderOutputs();
+                updateJsonField();
+            });
+
+            const inputArea = testDiv.querySelector('.test-input');
+            inputArea.addEventListener('change', (e) => {
+                test.input = e.target.value;
+                updateJsonField();
+            });
+
+            const removeTestBtn = testDiv.querySelector('.remove-test');
+            removeTestBtn.addEventListener('click', () => {
                 testsData.splice(index, 1);
                 renderTests();
             });
-            const inputArea = testDiv.querySelector('.test-input');
-            const outputArea = testDiv.querySelector('.test-output');
-            inputArea.addEventListener('change', (e) => {
-                testsData[index].input = e.target.value;
-                updateJsonField();
-            });
-            outputArea.addEventListener('change', (e) => {
-                testsData[index].output = e.target.value;
-                updateJsonField();
-            });
+
+            renderOutputs();
             container.appendChild(testDiv);
         });
         updateJsonField();
     }
 
     function updateJsonField() {
-        const jsonStr = JSON.stringify(testsData, null, 2);
+        // Подготовка данных: каждый тест должен иметь input и outputs (массив)
+        const cleaned = testsData.map(test => ({
+            input: test.input || '',
+            outputs: test.outputs && test.outputs.length ? test.outputs : ['']
+        }));
+        const jsonStr = JSON.stringify(cleaned, null, 2);
         testsJsonField.value = jsonStr;
     }
 
@@ -119,7 +168,7 @@
     }
 
     document.getElementById('add-test-btn').addEventListener('click', () => {
-        testsData.push({ input: '', output: '' });
+        testsData.push({ input: '', outputs: [''] });
         renderTests();
     });
 
