@@ -595,7 +595,9 @@ def add_group_task(group_id):
                 output_example=form.output_example.data,
                 tests_json=form.tests_json.data,
                 time_limit=form.time_limit.data,
-                created_by=current_user.id
+                created_by=current_user.id,
+                max_score=form.max_score.data if form.scoring_enabled.data else 0,
+                scoring_enabled=form.scoring_enabled.data
             )
             session.add(task)
             session.commit()
@@ -628,6 +630,8 @@ def edit_group_task(group_id, task_id):
             task.output_example = form.output_example.data
             task.tests_json = form.tests_json.data
             task.time_limit = form.time_limit.data
+            task.max_score = form.max_score.data if form.scoring_enabled.data else 0
+            task.scoring_enabled = form.scoring_enabled.data
             session.commit()
             flash('Задача обновлена', 'success')
             return redirect(url_for('group_detail', group_id=group_id))
@@ -638,6 +642,8 @@ def edit_group_task(group_id, task_id):
             form.output_example.data = task.output_example
             form.tests_json.data = task.tests_json
             form.time_limit.data = task.time_limit
+            form.max_score.data = task.max_score if task.max_score else 100
+            form.scoring_enabled.data = task.scoring_enabled
     return render_template('admin/group_task_form.html', form=form, group=group, task=task)
 
 @app.route('/admin/groups/<int:group_id>/delete_task/<int:task_id>')
@@ -725,15 +731,36 @@ def group_tasks_list(group_id):
             return redirect(url_for('my_groups'))
         tasks = session.query(GroupTask).filter(GroupTask.group_id == group_id).all()
         task_status = {}
+        task_best_score = {}
         for t in tasks:
-            sub = session.query(GroupSubmission).filter_by(task_id=t.id, user_id=current_user.id).order_by(GroupSubmission.created_at.desc()).first()
-            if sub and sub.status == 'OK':
-                task_status[t.id] = 'solved'
-            elif sub:
-                task_status[t.id] = 'attempted'
+            if t.scoring_enabled:
+                # Балльная задача: ищем максимальный набранный балл
+                sub = session.query(GroupSubmission).filter_by(task_id=t.id, user_id=current_user.id).order_by(GroupSubmission.score.desc()).first()
+                if sub and sub.score is not None:
+                    task_best_score[t.id] = sub.score
+                    if sub.score == t.max_score:
+                        task_status[t.id] = 'solved'
+                    elif sub.score > 0:
+                        task_status[t.id] = 'attempted'
+                    else:
+                        task_status[t.id] = 'none'
+                else:
+                    task_status[t.id] = 'none'
+                    task_best_score[t.id] = 0
             else:
-                task_status[t.id] = 'none'
-        return render_template('group_tasks.html', group=group, tasks=tasks, task_status=task_status)
+                # Обычная задача (без баллов) – проверяем статус OK
+                ok_sub = session.query(GroupSubmission).filter_by(task_id=t.id, user_id=current_user.id, status='OK').first()
+                any_sub = session.query(GroupSubmission).filter_by(task_id=t.id, user_id=current_user.id).first()
+                if ok_sub:
+                    task_status[t.id] = 'solved'
+                    task_best_score[t.id] = 1   # маркер, что решено
+                elif any_sub:
+                    task_status[t.id] = 'attempted'
+                    task_best_score[t.id] = 0
+                else:
+                    task_status[t.id] = 'none'
+                    task_best_score[t.id] = 0
+        return render_template('group_tasks.html', group=group, tasks=tasks, task_status=task_status, task_best_score=task_best_score)
 
 
 @app.route('/group/task/<int:task_id>', methods=['GET', 'POST'])
@@ -787,23 +814,31 @@ def group_task_detail(task_id):
             session.commit()
             sub_id = submission.id
         from utils.docker_checker import run_code_in_docker
-        status, details = run_code_in_docker(code, task.tests_json, language=language, time_limit=task.time_limit)
+        status, details, score = run_code_in_docker(code, task.tests_json, language=language, time_limit=task.time_limit)
         with db_session.session_scope() as session:
             sub = session.query(GroupSubmission).get(sub_id)
             sub.status = status
             sub.details = details
+            if task.scoring_enabled:
+                sub.score = score
+            else:
+                sub.score = None  # или 0, но None означает отсутствие баллов
             session.commit()
-        flash(f'Результат: {status}', 'info')
+        if task.scoring_enabled:
+            flash(f'Результат: {status}, набрано баллов: {score} из {task.max_score}', 'info')
+        else:
+            flash(f'Результат: {status}', 'info')
         if status != 'OK':
             flask_session['temp_code'] = code
-        # Передаём ID задачи и группы в шаблон
         return render_template('group_submission_result.html',
                                submission_id=sub.id,
                                task_id=task.id,
                                group_id=group.id,
                                status=status,
                                language=language,
-                               details=details)
+                               details=details,
+                               score=score if task.scoring_enabled else None,
+                               max_score=task.max_score if task.scoring_enabled else None)
     if temp_code:
         form.code.data = temp_code
     return render_template('group_task_detail.html', task=task, form=form, group=group,
@@ -833,6 +868,7 @@ def edit_profile():
     form.about.data = current_user.about
     return render_template('edit_profile.html', form=form)
 
+
 @app.route('/group/<int:group_id>/rating')
 @login_required
 def group_rating(group_id):
@@ -845,24 +881,55 @@ def group_rating(group_id):
         if not is_member and group.created_by != current_user.id:
             flash('Доступ запрещён', 'danger')
             return redirect(url_for('my_groups'))
+
+        # Все задачи группы
+        tasks = session.query(GroupTask).filter(GroupTask.group_id == group_id).all()
+        # Все участники группы
         members = session.query(GroupMember).filter(GroupMember.group_id == group_id).all()
-        group_rating = []
+
+        rating_matrix = []
         for member in members:
             user = member.user
-            solved_count = session.query(GroupSubmission).filter(
-                GroupSubmission.user_id == user.id,
-                GroupSubmission.status == 'OK'
-            ).join(GroupTask).filter(GroupTask.group_id == group_id).distinct(GroupSubmission.task_id).count()
-            group_rating.append({
-                'user': user,
-                'solved': solved_count,
-                'avatar': user.avatar_filename
+            tasks_status = {}
+            for task in tasks:
+                # Для задач с баллами – лучший набранный балл
+                if task.scoring_enabled:
+                    best_sub = session.query(GroupSubmission).filter(
+                        GroupSubmission.task_id == task.id,
+                        GroupSubmission.user_id == user.id
+                    ).order_by(GroupSubmission.score.desc()).first()
+                    if best_sub and best_sub.score is not None:
+                        tasks_status[task.id] = {'type': 'score', 'value': best_sub.score}
+                    else:
+                        tasks_status[task.id] = {'type': 'none', 'value': None}
+                else:
+                    # Для задач без баллов – статус OK/не OK
+                    ok_sub = session.query(GroupSubmission).filter(
+                        GroupSubmission.task_id == task.id,
+                        GroupSubmission.user_id == user.id,
+                        GroupSubmission.status == 'OK'
+                    ).first()
+                    attempted_sub = session.query(GroupSubmission).filter(
+                        GroupSubmission.task_id == task.id,
+                        GroupSubmission.user_id == user.id
+                    ).first()
+                    if ok_sub:
+                        tasks_status[task.id] = {'type': 'solved', 'value': True}
+                    elif attempted_sub:
+                        tasks_status[task.id] = {'type': 'attempted', 'value': False}
+                    else:
+                        tasks_status[task.id] = {'type': 'none', 'value': None}
+            rating_matrix.append({
+                'user_name': user.name,
+                'avatar': user.avatar_filename,
+                'tasks_status': tasks_status
             })
-        group_rating.sort(key=lambda x: x['solved'], reverse=True)
-        for idx, item in enumerate(group_rating, 1):
-            item['rank'] = idx
-        return render_template('group_rating.html', group=group, rating=group_rating)
 
+        # Сортировка матрицы (опционально, можно по сумме баллов или по числу решённых)
+        # Для простоты оставим как есть (по имени)
+        rating_matrix.sort(key=lambda x: x['user_name'])
+
+        return render_template('group_rating_matrix.html', group=group, tasks=tasks, rating_matrix=rating_matrix)
 
 
 if __name__ == '__main__':

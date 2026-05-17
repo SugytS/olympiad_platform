@@ -5,7 +5,7 @@
     <div class="card-body">
         <table class="table table-striped">
             <thead>
-                <tr><th>Место</th><th>Аватар</th><th>Пользователь</th><th>Решено задач (в группе)</th></tr>
+                <tr><th>Место</th><th>Аватар</th><th>Пользователь</th><th>Баллы</th></tr>
             </thead>
             <tbody>
                 {% for r in rating %}
@@ -19,7 +19,7 @@
                         {% endif %}
                     </td>
                     <td>{{ r.user.name }}</td>
-                    <td>{{ r.solved }}</td>
+                    <td>{{ r.score }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

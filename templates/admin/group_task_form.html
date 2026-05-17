@@ -26,13 +26,26 @@
         </div>
     </div>
 
-    <!-- Тесты с поддержкой нескольких правильных выводов -->
+    <div class="mb-3 form-check">
+        {{ form.scoring_enabled(class="form-check-input", id="scoring_enabled") }}
+        {{ form.scoring_enabled.label(class="form-check-label") }}
+        <small class="text-muted d-block">Если включено, можно задать баллы за подгруппы. Сумма баллов подгрупп = максимальный балл за задачу.</small>
+    </div>
+
+    <div id="scoring-block" style="display: none;">
+        <div class="mb-3">
+            {{ form.max_score.label(class="form-label") }}
+            {{ form.max_score(class="form-control", id="max_score") }}
+            <small class="text-muted">Сумма баллов всех подгрупп должна равняться максимальному баллу.</small>
+        </div>
+    </div>
+
     <div class="mb-3">
-        <label class="form-label">Тесты (входные данные → ожидаемый вывод)</label>
-        <div id="tests-container"></div>
-        <button type="button" class="btn btn-secondary btn-sm mt-2" id="add-test-btn">+ Добавить тест</button>
+        <label class="form-label">Подгруппы тестов (субтесты)</label>
+        <div id="groups-container"></div>
+        <button type="button" class="btn btn-primary btn-sm mt-2" id="add-group-btn">+ Добавить подгруппу</button>
         {{ form.tests_json(class="form-control d-none", id="tests-json") }}
-        <small class="text-muted">Для каждого теста можно указать несколько правильных ответов (кнопка «+ ещё вариант»).</small>
+        <small class="text-muted">Каждая подгруппа содержит несколько тестов. Баллы за подгруппу начисляются, только если пройдены ВСЕ её тесты.</small>
     </div>
 
     <div class="mb-3">
@@ -44,105 +57,200 @@
 </form>
 
 <script>
-    let testsData = [];
+    let groupsData = [];
+    let scoringEnabled = false;
     {% if task and task.tests_json %}
-        testsData = {{ task.tests_json|safe }};
-        // Преобразуем старый формат (output: строка) в новый (outputs: массив)
-        for (let i = 0; i < testsData.length; i++) {
-            if (testsData[i].output !== undefined && testsData[i].outputs === undefined) {
-                testsData[i].outputs = [testsData[i].output];
-                delete testsData[i].output;
+        let rawData = {{ task.tests_json|safe }};
+        // Нормализация: если плоский список тестов -> одна подгруппа с баллом 0
+        if (rawData.length && !rawData[0].tests) {
+            groupsData = [{ name: "Основные тесты", score: 0, tests: rawData }];
+        } else {
+            groupsData = rawData;
+        }
+        // Обеспечиваем наличие полей
+        for (let g of groupsData) {
+            if (g.score === undefined) g.score = 0;
+            for (let t of g.tests || []) {
+                if (t.output !== undefined && t.outputs === undefined) {
+                    t.outputs = [t.output];
+                    delete t.output;
+                }
+                if (!t.outputs) t.outputs = [''];
+                if (typeof t.outputs === 'string') t.outputs = [t.outputs];
             }
-            if (!testsData[i].outputs) testsData[i].outputs = [''];
-            if (typeof testsData[i].outputs === 'string') testsData[i].outputs = [testsData[i].outputs];
         }
     {% endif %}
+    {% if task and task.scoring_enabled %}
+        scoringEnabled = true;
+    {% endif %}
 
-    const container = document.getElementById('tests-container');
+    const container = document.getElementById('groups-container');
     const testsJsonField = document.getElementById('tests-json');
+    const maxScoreInput = document.getElementById('max_score');
+    const scoringCheckbox = document.getElementById('scoring_enabled');
+    const scoringBlock = document.getElementById('scoring-block');
 
-    function renderTests() {
+    function toggleScoringUI() {
+        if (scoringCheckbox.checked) {
+            scoringBlock.style.display = 'block';
+        } else {
+            scoringBlock.style.display = 'none';
+        }
+        renderGroups();
+    }
+
+    function renderGroups() {
         container.innerHTML = '';
-        testsData.forEach((test, index) => {
-            const testDiv = document.createElement('div');
-            testDiv.className = 'card mb-3';
-            testDiv.innerHTML = `
+        groupsData.forEach((group, groupIdx) => {
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'card mb-4';
+            groupDiv.innerHTML = `
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <strong>Тест №${index+1}</strong>
-                    <button type="button" class="btn btn-sm btn-danger remove-test">Удалить тест</button>
+                    <div class="d-flex gap-2 align-items-center">
+                        <input type="text" class="form-control form-control-sm group-name" style="width: 250px;" value="${escapeHtml(group.name || 'Подгруппа')}" placeholder="Название подгруппы">
+                        <span class="ms-2">
+                            <label class="form-label mb-0">Баллов за подгруппу:</label>
+                            <input type="number" class="form-control form-control-sm group-score" style="width: 100px;" value="${group.score !== undefined ? group.score : 0}" min="0" step="1">
+                        </span>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-danger remove-group">Удалить подгруппу</button>
                 </div>
                 <div class="card-body">
-                    <div class="mb-2">
-                        <label class="form-label">Входные данные (input)</label>
-                        <textarea class="form-control test-input" rows="2">${escapeHtml(test.input)}</textarea>
-                    </div>
-                    <div class="mb-2">
-                        <label class="form-label">Правильные ответы (один или несколько)</label>
-                        <div class="outputs-container" data-test-index="${index}"></div>
-                        <button type="button" class="btn btn-outline-secondary btn-sm add-output-option">+ Добавить вариант ответа</button>
-                    </div>
+                    <div class="tests-container" data-group-index="${groupIdx}"></div>
+                    <button type="button" class="btn btn-secondary btn-sm mt-2 add-test-btn">+ Добавить тест в подгруппу</button>
                 </div>
             `;
-            const outputsContainer = testDiv.querySelector('.outputs-container');
-            const addOutputBtn = testDiv.querySelector('.add-output-option');
+            const testsContainer = groupDiv.querySelector('.tests-container');
+            const groupNameInput = groupDiv.querySelector('.group-name');
+            const groupScoreInput = groupDiv.querySelector('.group-score');
+            const addTestBtn = groupDiv.querySelector('.add-test-btn');
+            const removeGroupBtn = groupDiv.querySelector('.remove-group');
 
-            function renderOutputs() {
-                outputsContainer.innerHTML = '';
-                (test.outputs || ['']).forEach((outVal, outIdx) => {
-                    const outGroup = document.createElement('div');
-                    outGroup.className = 'input-group mb-2';
-                    outGroup.innerHTML = `
-                        <input type="text" class="form-control output-value" value="${escapeHtml(outVal)}" placeholder="Ожидаемый вывод">
-                        <button type="button" class="btn btn-danger remove-output">✖</button>
+            function renderTests() {
+                testsContainer.innerHTML = '';
+                (group.tests || []).forEach((test, testIdx) => {
+                    const testCard = document.createElement('div');
+                    testCard.className = 'card mb-2';
+                    testCard.innerHTML = `
+                        <div class="card-body">
+                            <div class="mb-2">
+                                <label class="form-label">Входные данные</label>
+                                <textarea class="form-control test-input" rows="2">${escapeHtml(test.input)}</textarea>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label">Правильные ответы (один или несколько)</label>
+                                <div class="outputs-container"></div>
+                                <button type="button" class="btn btn-outline-secondary btn-sm add-output-option">+ Добавить вариант ответа</button>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-danger remove-test">Удалить тест</button>
+                        </div>
                     `;
-                    const removeOutBtn = outGroup.querySelector('.remove-output');
-                    removeOutBtn.addEventListener('click', () => {
-                        test.outputs.splice(outIdx, 1);
-                        if (test.outputs.length === 0) test.outputs = [''];
+                    const outputsContainer = testCard.querySelector('.outputs-container');
+                    const addOutputBtn = testCard.querySelector('.add-output-option');
+
+                    function renderOutputs() {
+                        outputsContainer.innerHTML = '';
+                        (test.outputs || ['']).forEach((outVal, outIdx) => {
+                            const outGroup = document.createElement('div');
+                            outGroup.className = 'input-group mb-2';
+                            outGroup.innerHTML = `
+                                <input type="text" class="form-control output-value" value="${escapeHtml(outVal)}" placeholder="Ожидаемый вывод">
+                                <button type="button" class="btn btn-danger remove-output">✖</button>
+                            `;
+                            const removeOutBtn = outGroup.querySelector('.remove-output');
+                            removeOutBtn.addEventListener('click', () => {
+                                test.outputs.splice(outIdx, 1);
+                                if (test.outputs.length === 0) test.outputs = [''];
+                                renderOutputs();
+                                updateJsonField();
+                            });
+                            const outputInput = outGroup.querySelector('.output-value');
+                            outputInput.addEventListener('change', (e) => {
+                                test.outputs[outIdx] = e.target.value;
+                                updateJsonField();
+                            });
+                            outputsContainer.appendChild(outGroup);
+                        });
+                    }
+
+                    addOutputBtn.addEventListener('click', () => {
+                        if (!test.outputs) test.outputs = [''];
+                        test.outputs.push('');
                         renderOutputs();
                         updateJsonField();
                     });
-                    const outputInput = outGroup.querySelector('.output-value');
-                    outputInput.addEventListener('change', (e) => {
-                        test.outputs[outIdx] = e.target.value;
+
+                    const inputArea = testCard.querySelector('.test-input');
+                    inputArea.addEventListener('change', (e) => {
+                        test.input = e.target.value;
                         updateJsonField();
                     });
-                    outputsContainer.appendChild(outGroup);
+
+                    const removeTestBtn = testCard.querySelector('.remove-test');
+                    removeTestBtn.addEventListener('click', () => {
+                        group.tests.splice(testIdx, 1);
+                        if (group.tests.length === 0) group.tests = [];
+                        renderTests();
+                        updateJsonField();
+                    });
+
+                    renderOutputs();
+                    testsContainer.appendChild(testCard);
                 });
             }
 
-            addOutputBtn.addEventListener('click', () => {
-                if (!test.outputs) test.outputs = [''];
-                test.outputs.push('');
-                renderOutputs();
+            groupNameInput.addEventListener('change', (e) => {
+                group.name = e.target.value;
                 updateJsonField();
             });
-
-            const inputArea = testDiv.querySelector('.test-input');
-            inputArea.addEventListener('change', (e) => {
-                test.input = e.target.value;
+            groupScoreInput.addEventListener('change', (e) => {
+                group.score = parseInt(e.target.value) || 0;
                 updateJsonField();
             });
-
-            const removeTestBtn = testDiv.querySelector('.remove-test');
-            removeTestBtn.addEventListener('click', () => {
-                testsData.splice(index, 1);
+            addTestBtn.addEventListener('click', () => {
+                if (!group.tests) group.tests = [];
+                group.tests.push({ input: '', outputs: [''] });
                 renderTests();
+                updateJsonField();
+            });
+            removeGroupBtn.addEventListener('click', () => {
+                groupsData.splice(groupIdx, 1);
+                renderGroups();
+                updateJsonField();
             });
 
-            renderOutputs();
-            container.appendChild(testDiv);
+            renderTests();
+            container.appendChild(groupDiv);
         });
         updateJsonField();
     }
 
     function updateJsonField() {
-        const cleaned = testsData.map(test => ({
-            input: test.input || '',
-            outputs: test.outputs && test.outputs.length ? test.outputs : ['']
+        let cleaned = groupsData.map(group => ({
+            name: group.name || 'Подгруппа',
+            score: scoringCheckbox.checked ? (group.score !== undefined ? group.score : 0) : 0,
+            tests: (group.tests || []).map(test => ({
+                input: test.input || '',
+                outputs: test.outputs && test.outputs.length ? test.outputs : ['']
+            }))
         }));
         const jsonStr = JSON.stringify(cleaned, null, 2);
         testsJsonField.value = jsonStr;
+
+        if (scoringCheckbox.checked) {
+            const totalScore = cleaned.reduce((sum, g) => sum + (g.score || 0), 0);
+            const maxScore = parseInt(maxScoreInput.value) || 0;
+            if (totalScore !== maxScore) {
+                maxScoreInput.classList.add('is-invalid');
+                document.getElementById('submit-btn').disabled = true;
+            } else {
+                maxScoreInput.classList.remove('is-invalid');
+                document.getElementById('submit-btn').disabled = false;
+            }
+        } else {
+            maxScoreInput.classList.remove('is-invalid');
+            document.getElementById('submit-btn').disabled = false;
+        }
     }
 
     function escapeHtml(str) {
@@ -155,15 +263,25 @@
         });
     }
 
-    document.getElementById('add-test-btn').addEventListener('click', () => {
-        testsData.push({ input: '', outputs: [''] });
-        renderTests();
+    document.getElementById('add-group-btn').addEventListener('click', () => {
+        groupsData.push({ name: 'Новая подгруппа', score: 0, tests: [{ input: '', outputs: [''] }] });
+        renderGroups();
     });
+
+    scoringCheckbox.addEventListener('change', () => {
+        toggleScoringUI();
+        updateJsonField();
+    });
+
+    maxScoreInput.addEventListener('input', () => updateJsonField());
 
     document.getElementById('taskForm').addEventListener('submit', () => {
         updateJsonField();
     });
 
-    renderTests();
+    // Инициализация
+    if (scoringEnabled) scoringCheckbox.checked = true;
+    toggleScoringUI();
+    renderGroups();
 </script>
 {% endblock %}

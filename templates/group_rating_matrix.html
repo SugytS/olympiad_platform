@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Рейтинг группы: {{ group.name }}</h1>
+<p class="text-muted">В таблице показан статус выполнения каждой задачи. Для задач с баллами отображается набранный балл.</p>
+
+<div class="table-responsive">
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th>Участник</th>
+                {% for task in tasks %}
+                    <th class="text-center">
+                        {{ task.title }}
+                        {% if task.scoring_enabled %}
+                            <br><small class="text-muted">({{ task.max_score }} баллов)</small>
+                        {% endif %}
+                    </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for user_data in rating_matrix %}
+            <tr>
+                <td>
+                    <div class="d-flex align-items-center gap-2">
+                        {% if user_data.avatar %}
+                            <img src="{{ url_for('static', filename='avatars/' + user_data.avatar) }}" alt="" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                        {% else %}
+                            <div style="width: 32px; height: 32px; border-radius: 50%; background-color: #ccc;"></div>
+                        {% endif %}
+                        {{ user_data.user_name }}
+                    </div>
+                </td>
+                {% for task in tasks %}
+                    <td class="text-center align-middle">
+                        {% set cell = user_data.tasks_status[task.id] %}
+                        {% if cell.type == 'score' %}
+                            <span class="badge bg-primary">{{ cell.value }} / {{ task.max_score }}</span>
+                        {% elif cell.type == 'solved' %}
+                            <span class="badge bg-success">✓</span>
+                        {% elif cell.type == 'attempted' %}
+                            <span class="badge bg-danger">✗</span>
+                        {% else %}
+                            <span class="badge bg-secondary">—</span>
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<a href="{{ url_for('group_tasks_list', group_id=group.id) }}" class="btn btn-secondary mt-3">← К задачам группы</a>
+{% endblock %}

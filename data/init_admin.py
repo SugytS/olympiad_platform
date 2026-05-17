@@ -40,6 +40,18 @@ def ensure_columns():
         if 'review_comment' not in cols_gs:
             session.execute(text('ALTER TABLE group_submissions ADD COLUMN review_comment TEXT'))
             print("Добавлена колонка review_comment в таблицу group_submissions")
+        if 'score' not in cols_gs:
+            session.execute(text('ALTER TABLE group_submissions ADD COLUMN score INTEGER DEFAULT NULL'))
+            print("Добавлена колонка score в таблицу group_submissions")
+
+        # group_tasks
+        cols_gt = [c['name'] for c in inspector.get_columns('group_tasks')]
+        if 'max_score' not in cols_gt:
+            session.execute(text('ALTER TABLE group_tasks ADD COLUMN max_score INTEGER DEFAULT 100'))
+            print("Добавлена колонка max_score в таблицу group_tasks")
+        if 'scoring_enabled' not in cols_gt:
+            session.execute(text('ALTER TABLE group_tasks ADD COLUMN scoring_enabled BOOLEAN DEFAULT 0'))
+            print("Добавлена колонка scoring_enabled в таблицу group_tasks")
 
         session.commit()
 

@@ -8,9 +8,7 @@
             {{ status }}
         </span>
         <span class="ms-3">Язык: {{ language|upper }}</span>
-        {% if max_score is not none %}
-            <span class="ms-3">Баллы: {{ score }} / {{ max_score }}</span>
-        {% endif %}
+        <span class="ms-3">Баллы: {{ score }} / {{ max_score }}</span>
     </div>
     <div class="card-body">
         <pre class="bg-dark text-light p-3 rounded">{{ details }}</pre>
